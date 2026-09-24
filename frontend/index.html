@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceCart AI | The Voice-Native Store</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header>
+        <div class="logo">VoiceCart AI</div>
+        <nav>
+            <a href="#" id="nav-home">Home</a>
+            <a href="#" id="nav-cart">Cart (<span id="cart-count">0</span>)</a>
+        </nav>
+        <div class="voice-indicator" id="voice-indicator">
+            <span class="dot"></span> Agent Idle
+        </div>
+    </header>
+
+    <main id="main-view">
+        <div class="hero">
+            <h1>Say "Show me windproof umbrellas"</h1>
+            <p>Experience hands-free shopping powered by AssemblyAI</p>
+            <button id="start-mic-btn" class="primary-btn">Start Voice Session</button>
+        </div>
+        
+        <div id="product-grid" class="product-grid" style="display: none;">
+            <!-- Products injected here -->
+        </div>
+
+        <div id="comparison-view" class="comparison-view" style="display: none;">
+            <!-- Matrix injected here -->
+        </div>
+    </main>
+
+    <div class="voice-panel">
+        <div class="transcript-box">
+            <p id="live-transcript">Live transcript will appear here...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/agent_speaker.js"></script>
+    <script src="js/ui_renderer.js"></script>
+    <script src="js/websocket_client.js"></script>
+    <script src="js/audio_recorder.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+</html>

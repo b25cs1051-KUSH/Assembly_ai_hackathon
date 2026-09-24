@@ -1,0 +1,182 @@
+[
+  {
+    "id": "1",
+    "name": "StormShield Pro",
+    "brand": "StormShield",
+    "price": 89.99,
+    "rating": 4.9,
+    "review_count": 342,
+    "specs": {
+      "frame_material": "Fiberglass",
+      "canopy_size_inches": 54,
+      "wind_rating_mph": 60,
+      "weight_oz": 24,
+      "automatic_open": true
+    },
+    "description": "The ultimate defense against severe weather. Built with a reinforced fiberglass frame and vented double canopy.",
+    "reviews_summary": "Customers love the extreme durability in high winds, though a few find it slightly heavy.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=StormShield+Pro"
+  },
+  {
+    "id": "2",
+    "name": "Aeroflex Lite",
+    "brand": "Aeroflex",
+    "price": 45.00,
+    "rating": 4.6,
+    "review_count": 128,
+    "specs": {
+      "frame_material": "Carbon Fiber",
+      "canopy_size_inches": 42,
+      "wind_rating_mph": 40,
+      "weight_oz": 12,
+      "automatic_open": true
+    },
+    "description": "Ultra-lightweight and compact, perfect for everyday carry and sudden showers.",
+    "reviews_summary": "Highly praised for being exceptionally light and easy to carry, but the canopy is a bit small for heavy rain.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=Aeroflex+Lite"
+  },
+  {
+    "id": "3",
+    "name": "UrbanDry Classic",
+    "brand": "UrbanDry",
+    "price": 25.50,
+    "rating": 4.2,
+    "review_count": 89,
+    "specs": {
+      "frame_material": "Steel",
+      "canopy_size_inches": 38,
+      "wind_rating_mph": 25,
+      "weight_oz": 16,
+      "automatic_open": false
+    },
+    "description": "A stylish, minimalist umbrella designed for city living. Reliable and affordable.",
+    "reviews_summary": "Great value for money with a sleek look. The steel frame can invert in very strong winds.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=UrbanDry+Classic"
+  },
+  {
+    "id": "4",
+    "name": "RoyalCanopy Executive",
+    "brand": "RoyalCanopy",
+    "price": 75.00,
+    "rating": 4.8,
+    "review_count": 215,
+    "specs": {
+      "frame_material": "Wood and Fiberglass",
+      "canopy_size_inches": 48,
+      "wind_rating_mph": 50,
+      "weight_oz": 20,
+      "automatic_open": true
+    },
+    "description": "Elegance meets performance. Features a classic wooden hook handle and a robust windproof canopy.",
+    "reviews_summary": "Users rave about the sophisticated aesthetic and comfortable grip. Excellent build quality.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=RoyalCanopy+Executive"
+  },
+  {
+    "id": "5",
+    "name": "StormShield Compact",
+    "brand": "StormShield",
+    "price": 55.00,
+    "rating": 4.7,
+    "review_count": 176,
+    "specs": {
+      "frame_material": "Fiberglass",
+      "canopy_size_inches": 42,
+      "wind_rating_mph": 55,
+      "weight_oz": 15,
+      "automatic_open": true
+    },
+    "description": "The durability of StormShield in a more portable size. Fits easily into backpacks and briefcases.",
+    "reviews_summary": "Perfect balance of toughness and portability. The folding mechanism is very smooth.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=StormShield+Compact"
+  },
+  {
+    "id": "6",
+    "name": "Aeroflex Golf",
+    "brand": "Aeroflex",
+    "price": 65.00,
+    "rating": 4.5,
+    "review_count": 92,
+    "specs": {
+      "frame_material": "Carbon Fiber",
+      "canopy_size_inches": 62,
+      "wind_rating_mph": 45,
+      "weight_oz": 22,
+      "automatic_open": false
+    },
+    "description": "Massive coverage area for the golf course or walking with a partner. Vented for wind resistance.",
+    "reviews_summary": "Provides fantastic coverage. It's large, so it's not meant for crowded city sidewalks.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=Aeroflex+Golf"
+  },
+  {
+    "id": "7",
+    "name": "UrbanDry Eco",
+    "brand": "UrbanDry",
+    "price": 30.00,
+    "rating": 4.4,
+    "review_count": 54,
+    "specs": {
+      "frame_material": "Recycled Aluminum",
+      "canopy_size_inches": 40,
+      "wind_rating_mph": 30,
+      "weight_oz": 14,
+      "automatic_open": true
+    },
+    "description": "Made with 100% recycled materials for the eco-conscious consumer. Sturdy and sustainable.",
+    "reviews_summary": "People appreciate the sustainable materials. Works great for normal rain conditions.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=UrbanDry+Eco"
+  },
+  {
+    "id": "8",
+    "name": "RoyalCanopy Travel",
+    "brand": "RoyalCanopy",
+    "price": 60.00,
+    "rating": 4.6,
+    "review_count": 110,
+    "specs": {
+      "frame_material": "Aluminum/Fiberglass",
+      "canopy_size_inches": 44,
+      "wind_rating_mph": 45,
+      "weight_oz": 13,
+      "automatic_open": true
+    },
+    "description": "Premium travel umbrella that folds down remarkably small without sacrificing durability.",
+    "reviews_summary": "Excellent companion for business trips. The included leather case is a nice touch.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=RoyalCanopy+Travel"
+  },
+  {
+    "id": "9",
+    "name": "StormShield ClearView",
+    "brand": "StormShield",
+    "price": 40.00,
+    "rating": 4.3,
+    "review_count": 88,
+    "specs": {
+      "frame_material": "Fiberglass",
+      "canopy_size_inches": 46,
+      "wind_rating_mph": 50,
+      "weight_oz": 18,
+      "automatic_open": false
+    },
+    "description": "A deep dome umbrella with clear panels, allowing maximum visibility while protecting from wind and rain.",
+    "reviews_summary": "Great for seeing where you are going in heavy rain. The dome shape offers superior shoulder protection.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=StormShield+ClearView"
+  },
+  {
+    "id": "10",
+    "name": "Aeroflex Titanium",
+    "brand": "Aeroflex",
+    "price": 95.00,
+    "rating": 4.9,
+    "review_count": 45,
+    "specs": {
+      "frame_material": "Titanium Alloy",
+      "canopy_size_inches": 48,
+      "wind_rating_mph": 70,
+      "weight_oz": 16,
+      "automatic_open": true
+    },
+    "description": "The pinnacle of umbrella engineering. Virtually indestructible titanium frame and aerospace-grade canopy.",
+    "reviews_summary": "Incredibly strong yet surprisingly light. It's expensive, but it's the last umbrella you'll ever buy.",
+    "image_url": "https://placehold.co/400x400/2a2a2a/ffffff?text=Aeroflex+Titanium"
+  }
+]
