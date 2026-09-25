@@ -11,8 +11,6 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "websockets",
-    "assemblyai",
     "pydantic",
     "python-dotenv",
     "httpx"

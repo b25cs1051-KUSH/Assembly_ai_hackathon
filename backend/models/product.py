@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+
 
 class ProductSpecs(BaseModel):
     frame_material: str
@@ -19,8 +19,3 @@ class Product(BaseModel):
     description: str
     reviews_summary: str
     image_url: str
-
-class VoiceCommandResponse(BaseModel):
-    command: str
-    payload: dict
-    spoken_response: str
