@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoiceCart AI — Premium Umbrellas</title>
     <meta name="description" content="Voice-powered premium umbrella store. Explore handpicked umbrellas from top brands.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a84ff' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M2 12a10 10 0 0 1 20 0z'/%3E%3Cpath d='M12 12v7a2 2 0 0 0 4 0'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -205,10 +206,31 @@
     <div class="toast-container" id="toast-container"></div>
 
     <!-- ============================================================ -->
+    <!-- VOICE DOCK                                                   -->
+    <!-- ============================================================ -->
+    <div class="voice-dock" id="voice-dock" data-status="idle">
+        <div class="voice-transcript" aria-live="polite">
+            <p class="voice-line voice-user" id="voice-user"></p>
+            <p class="voice-line voice-agent" id="voice-agent"></p>
+        </div>
+        <div class="voice-bar">
+            <button class="voice-btn" id="voice-btn" aria-pressed="false" aria-label="Start voice shopping">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="2" width="6" height="12" rx="3"/>
+                    <path d="M5 10v1a7 7 0 0 0 14 0v-1"/>
+                    <line x1="12" y1="18" x2="12" y2="22"/>
+                </svg>
+            </button>
+            <span class="voice-status" id="voice-status">Tap to shop by voice</span>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
     <!-- SCRIPTS                                                      -->
     <!-- ============================================================ -->
     <script src="js/ui_renderer.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/voice_agent.js"></script>
 
 </body>
 </html>
