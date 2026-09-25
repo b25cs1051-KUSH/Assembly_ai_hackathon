@@ -1,35 +1,28 @@
 """VoiceCart AI — FastAPI Backend Server."""
 
+import logging
 from pathlib import Path
-from typing import List, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+import httpx
+from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from backend import config
 from backend.services.product_service import (
+    compare_products,
     get_all_products,
     get_product_by_id,
     search_products,
-    compare_products,
 )
-
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# No CORS middleware on purpose: the frontend is served from this same app, and
+# allowing other origins would let any website mint voice tokens on our credits.
 app = FastAPI(title="VoiceCart AI", version="0.1.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ---------------------------------------------------------------------------
 # REST API
@@ -37,12 +30,12 @@ app.add_middleware(
 
 @app.get("/api/products")
 async def api_get_products(
-    q: Optional[str] = Query(None, description="Search query"),
-    brand: Optional[str] = Query(None),
-    min_price: Optional[float] = Query(None),
-    max_price: Optional[float] = Query(None),
-    min_rating: Optional[float] = Query(None),
-    min_wind: Optional[int] = Query(None),
+    q: str | None = Query(None, description="Search query"),
+    brand: str | None = Query(None),
+    min_price: float | None = Query(None),
+    max_price: float | None = Query(None),
+    min_rating: float | None = Query(None),
+    min_wind: int | None = Query(None),
 ):
     """Return all products with optional filtering."""
     products = get_all_products()
@@ -73,7 +66,7 @@ async def api_get_product(product_id: str):
 
 
 class CompareRequest(BaseModel):
-    ids: List[str]
+    ids: list[str]
 
 
 @app.post("/api/products/compare")
@@ -84,18 +77,56 @@ async def api_compare(body: CompareRequest):
 
 
 # ---------------------------------------------------------------------------
-# WebSocket — voice streaming stub (connected in a later step)
+# Voice Agent token — the browser connects to AssemblyAI directly with this
+# single-use temporary token, so the API key never leaves the server.
 # ---------------------------------------------------------------------------
 
-@app.websocket("/ws/voice")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
+VOICE_TOKEN_URL = "https://agents.assemblyai.com/v1/token"
+
+
+@app.get("/api/token")
+async def api_voice_token():
+    """Mint a single-use Voice Agent API token for one browser session."""
+    no_store = {"Cache-Control": "no-store"}
+    if not config.ASSEMBLYAI_API_KEY:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "ASSEMBLYAI_API_KEY is not set on the server"},
+            headers=no_store,
+        )
+
     try:
-        while True:
-            data = await websocket.receive_bytes()
-            # Future: pipe to AssemblyAI and return transcripts/commands
-    except WebSocketDisconnect:
-        logger.info("Client disconnected")
+        async with httpx.AsyncClient(timeout=10) as client:
+            res = await client.get(
+                VOICE_TOKEN_URL,
+                params={
+                    "expires_in_seconds": config.VOICE_TOKEN_EXPIRES_SECONDS,
+                    "max_session_duration_seconds": config.VOICE_MAX_SESSION_SECONDS,
+                },
+                headers={"Authorization": f"Bearer {config.ASSEMBLYAI_API_KEY}"},
+            )
+    except httpx.HTTPError as exc:
+        logger.error("Voice token request failed: %s", exc)
+        return JSONResponse(
+            status_code=502, content={"error": "Could not reach AssemblyAI"}, headers=no_store
+        )
+
+    if res.status_code != 200:
+        # Log the upstream body for debugging; don't forward it to the browser.
+        logger.error("Voice token request returned %s: %s", res.status_code, res.text[:300])
+        return JSONResponse(
+            status_code=502,
+            content={"error": f"AssemblyAI token request failed ({res.status_code})"},
+            headers=no_store,
+        )
+
+    token = res.json().get("token")
+    if not token:
+        logger.error("Voice token response had no token field")
+        return JSONResponse(
+            status_code=502, content={"error": "AssemblyAI returned no token"}, headers=no_store
+        )
+    return JSONResponse(content={"token": token}, headers=no_store)
 
 
 # ---------------------------------------------------------------------------
