@@ -2,14 +2,13 @@
 
 import json
 from pathlib import Path
-from typing import List, Optional
 
 DATA_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "products.json"
 
-_cache: Optional[List[dict]] = None
+_cache: list[dict] | None = None
 
 
-def load_products() -> List[dict]:
+def load_products() -> list[dict]:
     global _cache
     if _cache is None:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -17,18 +16,18 @@ def load_products() -> List[dict]:
     return _cache
 
 
-def get_all_products() -> List[dict]:
+def get_all_products() -> list[dict]:
     return load_products()
 
 
-def get_product_by_id(product_id: str) -> Optional[dict]:
+def get_product_by_id(product_id: str) -> dict | None:
     for p in load_products():
         if str(p["id"]) == str(product_id):
             return p
     return None
 
 
-def search_products(query: str) -> List[dict]:
+def search_products(query: str) -> list[dict]:
     q = query.lower()
     results = []
     for p in load_products():
@@ -43,7 +42,7 @@ def search_products(query: str) -> List[dict]:
     return results
 
 
-def compare_products(ids: List[str]) -> dict:
+def compare_products(ids: list[str]) -> dict:
     """Return a structured comparison matrix for the given product IDs."""
     products = [get_product_by_id(pid) for pid in ids]
     products = [p for p in products if p is not None]
