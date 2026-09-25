@@ -11,11 +11,12 @@ const App = (() => {
         compareSet: new Set(),
         filters: {
             brand: 'all',
-            maxPrice: 130,
+            maxPrice: Infinity,
             minWind: 0,
             minRating: 0,
             search: '',
         },
+        priceCeiling: 100,   // slider max, derived from the catalog
     };
 
     /* ── HELPERS ────────────────────────────────────────────────── */
@@ -26,7 +27,24 @@ const App = (() => {
     async function fetchProducts() {
         const res = await fetch('/api/products');
         state.products = await res.json();
-        applyFilters();
+        initFilterControls();  // also applies the (reset) filters
+    }
+
+    /* Brand list and slider ranges come from the catalog, not hard-coded values */
+    function initFilterControls() {
+        const brands = [...new Set(state.products.map(p => p.brand))].sort((a, b) => a.localeCompare(b));
+        const brandSelect = $('#filter-brand');
+        brandSelect.length = 1;  // keep "All Brands"
+        brands.forEach(b => brandSelect.add(new Option(b, b)));
+
+        const maxPrice = Math.max(...state.products.map(p => p.price));
+        state.priceCeiling = Math.ceil(maxPrice / 5) * 5;
+        $('#filter-price').max = state.priceCeiling;
+
+        const maxWind = Math.max(...state.products.map(p => p.specs.wind_rating_mph));
+        $('#filter-wind').max = Math.ceil(maxWind / 5) * 5;
+
+        resetFilters();
     }
 
     async function fetchCompare(ids) {
@@ -57,10 +75,10 @@ const App = (() => {
     }
 
     function resetFilters() {
-        state.filters = { brand: 'all', maxPrice: 130, minWind: 0, minRating: 0, search: '' };
+        state.filters = { brand: 'all', maxPrice: state.priceCeiling, minWind: 0, minRating: 0, search: '' };
         $('#filter-brand').value = 'all';
-        $('#filter-price').value = 130;
-        $('#filter-price-label').textContent = '$130';
+        $('#filter-price').value = state.priceCeiling;
+        $('#filter-price-label').textContent = `$${state.priceCeiling}`;
         $('#filter-wind').value = 0;
         $('#filter-wind-label').textContent = '0 mph';
         $('#filter-rating').value = 0;

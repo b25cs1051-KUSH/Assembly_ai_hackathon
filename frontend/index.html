@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoiceCart AI — Premium Umbrellas</title>
-    <meta name="description" content="Voice-powered premium umbrella store. Explore 22 handpicked umbrellas from top brands.">
+    <meta name="description" content="Voice-powered premium umbrella store. Explore handpicked umbrellas from top brands.">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,21 +61,18 @@
                 <label for="filter-brand">Brand</label>
                 <select id="filter-brand">
                     <option value="all">All Brands</option>
-                    <option value="StormShield">StormShield</option>
-                    <option value="Aeroflex">Aeroflex</option>
-                    <option value="UrbanDry">UrbanDry</option>
-                    <option value="RoyalCanopy">RoyalCanopy</option>
-                    <option value="LuxeRain">LuxeRain</option>
+                    <!-- brand options are filled from the catalog in app.js -->
                 </select>
             </div>
             <div class="filter-group">
                 <label for="filter-price">Max Price</label>
-                <input type="range" id="filter-price" min="20" max="130" value="130" step="5">
-                <span id="filter-price-label">$130</span>
+                <!-- max/value are set from the catalog in app.js -->
+                <input type="range" id="filter-price" min="0" max="100" value="100" step="5">
+                <span id="filter-price-label">$100</span>
             </div>
             <div class="filter-group">
                 <label for="filter-wind">Min Wind Rating</label>
-                <input type="range" id="filter-wind" min="0" max="80" value="0" step="5">
+                <input type="range" id="filter-wind" min="0" max="100" value="0" step="5">
                 <span id="filter-wind-label">0 mph</span>
             </div>
             <div class="filter-group">
@@ -100,7 +97,7 @@
             <div class="hero-content">
                 <p class="hero-eyebrow">Premium Umbrella Collection</p>
                 <h1>Engineered for<br><span class="hero-accent">Every Storm</span></h1>
-                <p class="hero-sub">22 handpicked umbrellas from the world's finest makers.<br>Built to last. Designed to inspire.</p>
+                <p class="hero-sub">Handpicked umbrellas from the world's finest makers.<br>Built to last. Designed to inspire.</p>
                 <button class="btn-primary" id="hero-browse-btn">Browse Collection</button>
             </div>
         </section>
