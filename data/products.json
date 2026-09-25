@@ -1,510 +1,1322 @@
 [
   {
     "id": "1",
-    "name": "StormShield Pro",
-    "brand": "StormShield",
-    "price": 89.99,
-    "rating": 4.9,
-    "review_count": 342,
+    "name": "TUMELLA Windproof Travel Umbrella - Yellow",
+    "brand": "TUMELLA",
+    "price": 29.99,
+    "rating": 4.7,
+    "review_count": 12,
     "specs": {
-      "frame_material": "Fiberglass",
-      "canopy_size_inches": 54,
-      "wind_rating_mph": 60,
-      "weight_oz": 24,
+      "frame_material": "Fiberglass ribs, aluminum shaft",
+      "canopy_size_inches": 42,
+      "wind_rating_mph": 100,
+      "weight_oz": 14,
       "automatic_open": true
     },
-    "description": "The ultimate defense against severe weather. Built with a reinforced fiberglass frame and vented double canopy.",
-    "reviews_summary": "Customers love the extreme durability in high winds, though a few find it slightly heavy.",
+    "description": "A bright yellow compact travel umbrella wind-tested to 100 MPH. Reinforced fiberglass ribs, one-button auto open and close, and a premium rubber grip; it folds small enough for a backpack or car door pocket.",
+    "reviews_summary": "Shoppers love how strong it is in real storms and how easy the bright yellow canopy is to spot; a few wish it were a little lighter.",
     "reviews": [
-      { "name": "Marcus T.", "date": "2024-08-12", "rating": 5, "text": "Survived a 50mph storm on the coast without even flexing. Best umbrella I've ever owned." },
-      { "name": "Linda W.", "date": "2024-07-03", "rating": 5, "text": "Worth every penny. The double canopy venting is genius — no more getting yanked around by gusts." },
-      { "name": "James K.", "date": "2024-06-18", "rating": 4, "text": "Incredible build quality. Only downside is it's a bit heavy for daily carry, but perfect for storm season." }
+      {
+        "name": "Priya S.",
+        "date": "2026-09-17",
+        "rating": 5,
+        "text": "Survived a nasty gusty evening on the waterfront without flipping once. The yellow is cheerful and super visible to drivers."
+      },
+      {
+        "name": "Daniel K.",
+        "date": "2026-08-29",
+        "rating": 5,
+        "text": "One-hand open and close works every time. Lives in my backpack now."
+      },
+      {
+        "name": "Megan T.",
+        "date": "2026-08-10",
+        "rating": 4,
+        "text": "Really sturdy, but heavier than the flimsy compacts I used to buy. Worth it though."
+      },
+      {
+        "name": "Arjun M.",
+        "date": "2026-07-22",
+        "rating": 5,
+        "text": "Monsoon tested. Flexed hard in the wind and snapped right back. Love the color."
+      },
+      {
+        "name": "Chris L.",
+        "date": "2026-07-03",
+        "rating": 5,
+        "text": "Third umbrella from this brand. They just hold up."
+      },
+      {
+        "name": "Hannah W.",
+        "date": "2026-06-14",
+        "rating": 4,
+        "text": "Great umbrella. The auto close is a bit forceful, so keep fingers clear."
+      },
+      {
+        "name": "Omar F.",
+        "date": "2026-05-26",
+        "rating": 5,
+        "text": "Big enough coverage for a compact. My shoulders actually stayed dry."
+      },
+      {
+        "name": "Sofia R.",
+        "date": "2026-05-07",
+        "rating": 5,
+        "text": "Bought yellow so I'd stop losing it. Nobody else in the office has one this bright."
+      },
+      {
+        "name": "Jake P.",
+        "date": "2026-04-18",
+        "rating": 4,
+        "text": "Solid build. The sleeve is a little tight to slide back on when it's wet."
+      },
+      {
+        "name": "Neha G.",
+        "date": "2026-03-30",
+        "rating": 5,
+        "text": "Walked 20 minutes through sideways rain and it didn't budge."
+      },
+      {
+        "name": "Tom B.",
+        "date": "2026-03-11",
+        "rating": 5,
+        "text": "Feels premium for the price. Grip is comfortable."
+      },
+      {
+        "name": "Lauren C.",
+        "date": "2026-02-20",
+        "rating": 4,
+        "text": "Does exactly what it says. Canopy dries fast."
+      }
     ],
-    "image_url": "https://placehold.co/400x400/1a1a2e/6c63ff?text=StormShield+Pro"
+    "image_url": "/img/product-1.jpg"
   },
   {
     "id": "2",
-    "name": "Aeroflex Lite",
-    "brand": "Aeroflex",
-    "price": 45.00,
-    "rating": 4.6,
-    "review_count": 128,
+    "name": "Repel Windproof Travel Umbrella - Black",
+    "brand": "Repel",
+    "price": 26.99,
+    "rating": 4.5,
+    "review_count": 13,
     "specs": {
-      "frame_material": "Carbon Fiber",
+      "frame_material": "Fiberglass ribs, steel shaft",
       "canopy_size_inches": 42,
-      "wind_rating_mph": 40,
-      "weight_oz": 10,
+      "wind_rating_mph": 100,
+      "weight_oz": 14,
       "automatic_open": true
     },
-    "description": "Ultra-lightweight and compact, perfect for everyday carry and sudden showers.",
-    "reviews_summary": "Praised for being exceptionally light and easy to carry, though canopy coverage is modest.",
+    "description": "Repel's best-selling black travel umbrella. Nine resin-reinforced fiberglass ribs and a Teflon-coated canopy shrug off wind and rain, with auto open and close and a latex-free rubber handle.",
+    "reviews_summary": "A reliable everyday umbrella that people keep rebuying; the most common complaint is the weight for such a compact size.",
     "reviews": [
-      { "name": "Sophie R.", "date": "2024-09-01", "rating": 5, "text": "Weighs practically nothing. I keep it in my purse and forget it's even there until I need it." },
-      { "name": "David M.", "date": "2024-08-22", "rating": 4, "text": "Great daily umbrella. Could be a bit larger, but the weight trade-off is worth it." },
-      { "name": "Aisha P.", "date": "2024-07-15", "rating": 5, "text": "The auto-open is so satisfying and the carbon fiber frame feels impossibly light." }
+      {
+        "name": "Marcus J.",
+        "date": "2026-09-14",
+        "rating": 5,
+        "text": "Had my last one for four years before I left it on a train. Bought the same one again immediately."
+      },
+      {
+        "name": "Emily H.",
+        "date": "2026-08-26",
+        "rating": 5,
+        "text": "Handles city wind tunnels between buildings without inverting."
+      },
+      {
+        "name": "Raj P.",
+        "date": "2026-08-07",
+        "rating": 4,
+        "text": "Excellent umbrella but at 14 ounces it's not the lightest in my bag."
+      },
+      {
+        "name": "Kate O.",
+        "date": "2026-07-19",
+        "rating": 5,
+        "text": "Opens with a satisfying snap. Water beads right off the canopy."
+      },
+      {
+        "name": "Luis A.",
+        "date": "2026-06-30",
+        "rating": 4,
+        "text": "Very sturdy. The button is stiff for the first week."
+      },
+      {
+        "name": "Grace N.",
+        "date": "2026-06-11",
+        "rating": 5,
+        "text": "Simple black, looks professional, never fails."
+      },
+      {
+        "name": "Ben S.",
+        "date": "2026-05-23",
+        "rating": 3,
+        "text": "Good umbrella, but mine arrived with a slightly bent rib. Replacement was quick."
+      },
+      {
+        "name": "Ayesha Q.",
+        "date": "2026-05-04",
+        "rating": 5,
+        "text": "Inverted once in a huge gust and just popped back. Impressive."
+      },
+      {
+        "name": "Peter D.",
+        "date": "2026-04-15",
+        "rating": 5,
+        "text": "Best $27 I've spent on rain gear."
+      },
+      {
+        "name": "Nina V.",
+        "date": "2026-03-27",
+        "rating": 4,
+        "text": "Good coverage for one person, a bit tight for two."
+      },
+      {
+        "name": "Sam W.",
+        "date": "2026-03-08",
+        "rating": 5,
+        "text": "Wife stole mine so I ordered a second."
+      },
+      {
+        "name": "Jordan E.",
+        "date": "2026-02-17",
+        "rating": 4,
+        "text": "Solid. Would love a slightly longer handle."
+      },
+      {
+        "name": "Farah Z.",
+        "date": "2026-01-29",
+        "rating": 5,
+        "text": "Survived a whole winter of commuting. Still looks new."
+      }
     ],
-    "image_url": "https://placehold.co/400x400/1a2e1a/63ff6c?text=Aeroflex+Lite"
+    "image_url": "/img/product-2.jpg"
   },
   {
     "id": "3",
-    "name": "UrbanDry Classic",
-    "brand": "UrbanDry",
-    "price": 25.50,
-    "rating": 4.2,
-    "review_count": 89,
+    "name": "SoulRain 48\" Wooden Stick Umbrella - Yellow",
+    "brand": "SoulRain",
+    "price": 32.99,
+    "rating": 4.5,
+    "review_count": 11,
     "specs": {
-      "frame_material": "Steel",
-      "canopy_size_inches": 38,
-      "wind_rating_mph": 25,
-      "weight_oz": 16,
-      "automatic_open": false
+      "frame_material": "Fiberglass ribs, wooden shaft",
+      "canopy_size_inches": 48,
+      "wind_rating_mph": 50,
+      "weight_oz": 15,
+      "automatic_open": true
     },
-    "description": "A stylish, minimalist umbrella designed for city living. Reliable and affordable.",
-    "reviews_summary": "Great value for money with a sleek look. Steel frame can invert in very strong winds.",
+    "description": "A vintage-style yellow stick umbrella with a classic wooden J-handle and solid wooden shaft. The 48-inch auto-open canopy covers two people, and flexible fiberglass ribs bend in the wind instead of breaking.",
+    "reviews_summary": "People adore the sunny yellow color and the wooden handle; a few note it is long to carry on crowded transit.",
     "reviews": [
-      { "name": "Chris L.", "date": "2024-08-30", "rating": 4, "text": "Clean look, solid build for the price. My go-to commuter umbrella." },
-      { "name": "Priya S.", "date": "2024-07-12", "rating": 5, "text": "Finally an affordable umbrella that doesn't look cheap. Love the matte black finish." },
-      { "name": "Tom H.", "date": "2024-06-28", "rating": 3, "text": "Looks great and works fine in light rain. Had it invert on me in a gusty storm though." }
+      {
+        "name": "Charlotte M.",
+        "date": "2026-09-11",
+        "rating": 5,
+        "text": "This yellow umbrella is pure joy on a grey day. Strangers compliment it."
+      },
+      {
+        "name": "Vikram N.",
+        "date": "2026-08-23",
+        "rating": 5,
+        "text": "The wooden handle feels lovely in the hand. Very classic look."
+      },
+      {
+        "name": "Isabel F.",
+        "date": "2026-08-04",
+        "rating": 4,
+        "text": "Beautiful and sturdy, but it's a full-length stick so it's awkward on the subway."
+      },
+      {
+        "name": "Noah G.",
+        "date": "2026-07-16",
+        "rating": 5,
+        "text": "Easily keeps two of us dry. Auto open is quick."
+      },
+      {
+        "name": "Rachel K.",
+        "date": "2026-06-27",
+        "rating": 4,
+        "text": "Gorgeous color. The strap to keep it closed is a bit short."
+      },
+      {
+        "name": "Kenji T.",
+        "date": "2026-06-08",
+        "rating": 5,
+        "text": "Took it through a windy afternoon; ribs flexed and bounced back."
+      },
+      {
+        "name": "Paige L.",
+        "date": "2026-05-20",
+        "rating": 3,
+        "text": "Looks great, but the tip scuffed faster than I'd like."
+      },
+      {
+        "name": "Diego R.",
+        "date": "2026-05-01",
+        "rating": 5,
+        "text": "Bought as a gift for my mom. She calls it her sunshine umbrella."
+      },
+      {
+        "name": "Anika B.",
+        "date": "2026-04-12",
+        "rating": 5,
+        "text": "Feels far more expensive than it is."
+      },
+      {
+        "name": "Ethan C.",
+        "date": "2026-03-24",
+        "rating": 4,
+        "text": "Nice and big. Heavier than a compact, as expected."
+      },
+      {
+        "name": "Maya J.",
+        "date": "2026-03-05",
+        "rating": 5,
+        "text": "The yellow is bright and true to the photos."
+      }
     ],
-    "image_url": "https://placehold.co/400x400/2e2e1a/ffcc63?text=UrbanDry+Classic"
+    "image_url": "/img/product-3.jpg"
   },
   {
     "id": "4",
-    "name": "RoyalCanopy Executive",
-    "brand": "RoyalCanopy",
-    "price": 75.00,
-    "rating": 4.8,
-    "review_count": 215,
-    "specs": {
-      "frame_material": "Wood and Fiberglass",
-      "canopy_size_inches": 48,
-      "wind_rating_mph": 50,
-      "weight_oz": 20,
-      "automatic_open": true
-    },
-    "description": "Elegance meets performance. Features a classic wooden hook handle and a robust windproof canopy.",
-    "reviews_summary": "Users rave about the sophisticated aesthetic and comfortable grip. Excellent build quality.",
-    "reviews": [
-      { "name": "Victoria N.", "date": "2024-09-05", "rating": 5, "text": "This umbrella gets compliments. The wooden handle is smooth and the canopy is rock solid." },
-      { "name": "Robert A.", "date": "2024-08-14", "rating": 5, "text": "Bought it for client meetings. It looks premium and performs like it costs twice as much." },
-      { "name": "Elena G.", "date": "2024-07-20", "rating": 4, "text": "Beautiful craftsmanship. A bit large for tight city sidewalks, but the quality is undeniable." }
-    ],
-    "image_url": "https://placehold.co/400x400/2e1a1a/ff6363?text=RoyalCanopy+Executive"
-  },
-  {
-    "id": "5",
-    "name": "StormShield Compact",
-    "brand": "StormShield",
-    "price": 55.00,
-    "rating": 4.7,
-    "review_count": 176,
-    "specs": {
-      "frame_material": "Fiberglass",
-      "canopy_size_inches": 42,
-      "wind_rating_mph": 55,
-      "weight_oz": 15,
-      "automatic_open": true
-    },
-    "description": "The durability of StormShield in a more portable size. Fits easily into backpacks and briefcases.",
-    "reviews_summary": "Perfect balance of toughness and portability. The folding mechanism is very smooth.",
-    "reviews": [
-      { "name": "Kevin B.", "date": "2024-08-25", "rating": 5, "text": "All the StormShield toughness in a bag-friendly size. This thing is engineered beautifully." },
-      { "name": "Naomi F.", "date": "2024-07-30", "rating": 5, "text": "Folds down small but opens up strong. I've had it through two hurricanes already." },
-      { "name": "Derek C.", "date": "2024-06-15", "rating": 4, "text": "Great compact umbrella. Wish the canopy was slightly larger, but the wind resistance is top-tier." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a1a2e/9d63ff?text=StormShield+Compact"
-  },
-  {
-    "id": "6",
-    "name": "Aeroflex Golf",
-    "brand": "Aeroflex",
-    "price": 65.00,
-    "rating": 4.5,
-    "review_count": 92,
-    "specs": {
-      "frame_material": "Carbon Fiber",
-      "canopy_size_inches": 62,
-      "wind_rating_mph": 45,
-      "weight_oz": 22,
-      "automatic_open": false
-    },
-    "description": "Massive coverage area for the golf course or walking with a partner. Vented for wind resistance.",
-    "reviews_summary": "Provides fantastic coverage. Large size means it's not ideal for crowded sidewalks.",
-    "reviews": [
-      { "name": "Greg P.", "date": "2024-08-18", "rating": 5, "text": "Covers me and my golf bag completely. The vented canopy handles course winds perfectly." },
-      { "name": "Sarah J.", "date": "2024-07-25", "rating": 4, "text": "My husband and I can both walk under it comfortably. Very well made." },
-      { "name": "Mike D.", "date": "2024-06-08", "rating": 4, "text": "Outstanding size and build. Just not practical for commuting — it's a dedicated outdoor umbrella." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a2e2e/63ffcc?text=Aeroflex+Golf"
-  },
-  {
-    "id": "7",
-    "name": "UrbanDry Eco",
-    "brand": "UrbanDry",
-    "price": 30.00,
+    "name": "Totes Clear Bubble Umbrella",
+    "brand": "totes",
+    "price": 24.99,
     "rating": 4.4,
-    "review_count": 54,
+    "review_count": 10,
     "specs": {
-      "frame_material": "Recycled Aluminum",
-      "canopy_size_inches": 40,
+      "frame_material": "Aluminum",
+      "canopy_size_inches": 51,
       "wind_rating_mph": 30,
-      "weight_oz": 14,
-      "automatic_open": true
-    },
-    "description": "Made with 100% recycled materials for the eco-conscious consumer. Sturdy and sustainable.",
-    "reviews_summary": "People appreciate the sustainable materials. Works great for normal rain conditions.",
-    "reviews": [
-      { "name": "Emma T.", "date": "2024-09-02", "rating": 5, "text": "Love that it's made from recycled materials and it actually performs well. No greenwashing here." },
-      { "name": "Ryan G.", "date": "2024-08-10", "rating": 4, "text": "Solid umbrella with a clear conscience. Not the sturdiest in heavy wind, but great for everyday use." },
-      { "name": "Zoe M.", "date": "2024-07-05", "rating": 4, "text": "The recycled aluminum frame is surprisingly strong. Great eco-friendly option." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a2e1a/a3ff63?text=UrbanDry+Eco"
-  },
-  {
-    "id": "8",
-    "name": "RoyalCanopy Travel",
-    "brand": "RoyalCanopy",
-    "price": 60.00,
-    "rating": 4.6,
-    "review_count": 110,
-    "specs": {
-      "frame_material": "Aluminum and Fiberglass",
-      "canopy_size_inches": 44,
-      "wind_rating_mph": 45,
-      "weight_oz": 13,
-      "automatic_open": true
-    },
-    "description": "Premium travel umbrella that folds down remarkably small without sacrificing durability.",
-    "reviews_summary": "Excellent companion for business trips. The included leather case is a nice touch.",
-    "reviews": [
-      { "name": "Catherine W.", "date": "2024-08-28", "rating": 5, "text": "Fits perfectly in my carry-on side pocket. The leather sleeve makes it feel like a luxury item." },
-      { "name": "Anthony R.", "date": "2024-07-16", "rating": 4, "text": "Great travel umbrella. Light, compact, and the auto-open is a lifesaver when juggling luggage." },
-      { "name": "Michelle L.", "date": "2024-06-22", "rating": 5, "text": "Took it through 3 countries and it held up beautifully. Worth the premium over drugstore umbrellas." }
-    ],
-    "image_url": "https://placehold.co/400x400/2e1a2e/ff63cc?text=RoyalCanopy+Travel"
-  },
-  {
-    "id": "9",
-    "name": "StormShield ClearView",
-    "brand": "StormShield",
-    "price": 40.00,
-    "rating": 4.3,
-    "review_count": 88,
-    "specs": {
-      "frame_material": "Fiberglass",
-      "canopy_size_inches": 46,
-      "wind_rating_mph": 50,
-      "weight_oz": 18,
-      "automatic_open": false
-    },
-    "description": "Deep dome umbrella with clear panels for maximum visibility while protecting from wind and rain.",
-    "reviews_summary": "Great for seeing where you're going in heavy rain. Dome shape offers superior shoulder protection.",
-    "reviews": [
-      { "name": "Rachel K.", "date": "2024-09-08", "rating": 5, "text": "The clear panels are game-changing in city traffic. I can see approaching cars and other pedestrians." },
-      { "name": "Ben S.", "date": "2024-08-02", "rating": 4, "text": "Love the dome design. Keeps my shoulders dry and the clear sections keep it from feeling claustrophobic." },
-      { "name": "Diana P.", "date": "2024-07-10", "rating": 4, "text": "Unique and practical. The dome catches a bit more wind than a flat canopy, but the fiberglass handles it." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a1a2e/63c4ff?text=StormShield+ClearView"
-  },
-  {
-    "id": "10",
-    "name": "Aeroflex Titanium",
-    "brand": "Aeroflex",
-    "price": 95.00,
-    "rating": 4.9,
-    "review_count": 45,
-    "specs": {
-      "frame_material": "Titanium Alloy",
-      "canopy_size_inches": 48,
-      "wind_rating_mph": 70,
       "weight_oz": 16,
       "automatic_open": true
     },
-    "description": "The pinnacle of umbrella engineering. Virtually indestructible titanium frame with aerospace-grade canopy.",
-    "reviews_summary": "Incredibly strong yet surprisingly light. Expensive, but it's the last umbrella you'll ever buy.",
+    "description": "A clear dome bubble umbrella with a see-through canopy that curves down over your head and shoulders. Lightweight aluminum frame and a classic J-hook handle; you can see where you're walking while staying dry.",
+    "reviews_summary": "Loved for visibility and the deep dome coverage; not the pick for strong wind.",
     "reviews": [
-      { "name": "Alex H.", "date": "2024-09-10", "rating": 5, "text": "I've tested this in 65mph winds on purpose. It didn't even flinch. Worth every dollar." },
-      { "name": "Patricia F.", "date": "2024-08-20", "rating": 5, "text": "Bought one for myself and then three more as gifts. The titanium frame is absurdly strong." },
-      { "name": "Jordan M.", "date": "2024-07-28", "rating": 5, "text": "Coming from a $15 umbrella, this is like going from a bicycle to a Tesla. Unreal quality." }
+      {
+        "name": "Olivia P.",
+        "date": "2026-09-08",
+        "rating": 5,
+        "text": "Being able to see through it while crossing streets is a game changer."
+      },
+      {
+        "name": "Aaron M.",
+        "date": "2026-08-20",
+        "rating": 4,
+        "text": "Great coverage for my head and shoulders. Catches the wind a bit on gusty days."
+      },
+      {
+        "name": "Leah S.",
+        "date": "2026-08-01",
+        "rating": 5,
+        "text": "Used it for rainy wedding photos. Looked amazing in every shot."
+      },
+      {
+        "name": "Imran H.",
+        "date": "2026-07-13",
+        "rating": 4,
+        "text": "Classic totes quality. Clear plastic stays clear, no yellowing so far."
+      },
+      {
+        "name": "Zoe W.",
+        "date": "2026-06-24",
+        "rating": 3,
+        "text": "Nice umbrella but the dome shape makes it hard to share with someone."
+      },
+      {
+        "name": "Grace T.",
+        "date": "2026-06-05",
+        "rating": 5,
+        "text": "Perfect for walking the dog. I can actually see her."
+      },
+      {
+        "name": "Martin B.",
+        "date": "2026-05-17",
+        "rating": 4,
+        "text": "Deep canopy keeps rain off my bag too. Heavier than I expected."
+      },
+      {
+        "name": "Sana K.",
+        "date": "2026-04-28",
+        "rating": 5,
+        "text": "Feels cozy under the dome. Love the J handle."
+      },
+      {
+        "name": "Tyler R.",
+        "date": "2026-04-09",
+        "rating": 4,
+        "text": "Good buy. Fine in drizzle and steady rain, struggles in real storms."
+      },
+      {
+        "name": "Chloe D.",
+        "date": "2026-03-21",
+        "rating": 5,
+        "text": "My third one over the years. They last."
+      }
     ],
-    "image_url": "https://placehold.co/400x400/1a2e1a/63ff9d?text=Aeroflex+Titanium"
+    "image_url": "/img/product-4.jpg"
   },
   {
-    "id": "11",
-    "name": "StormShield Titan",
-    "brand": "StormShield",
-    "price": 110.00,
-    "rating": 4.8,
-    "review_count": 67,
-    "specs": {
-      "frame_material": "Titanium and Fiberglass",
-      "canopy_size_inches": 58,
-      "wind_rating_mph": 75,
-      "weight_oz": 28,
-      "automatic_open": true
-    },
-    "description": "The flagship storm umbrella. Designed for extreme weather conditions with the highest wind rating in its class.",
-    "reviews_summary": "Absolute beast in storms. Heavy but justified for anyone who faces severe weather regularly.",
-    "reviews": [
-      { "name": "Carlos V.", "date": "2024-09-12", "rating": 5, "text": "Hurricane-grade protection. I'm a meteorologist and this is the only umbrella I trust in the field." },
-      { "name": "Nancy O.", "date": "2024-08-05", "rating": 5, "text": "Heavy? Yes. But when 70mph gusts hit, everyone else's umbrella is in a trash can. Mine's still open." },
-      { "name": "Peter J.", "date": "2024-07-18", "rating": 4, "text": "Overkill for a drizzle, but irreplaceable in a real storm. The titanium frame is incredibly rigid." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a1a2e/ff63ff?text=StormShield+Titan"
-  },
-  {
-    "id": "12",
-    "name": "StormShield Mini",
-    "brand": "StormShield",
-    "price": 35.00,
-    "rating": 4.1,
-    "review_count": 134,
-    "specs": {
-      "frame_material": "Fiberglass",
-      "canopy_size_inches": 36,
-      "wind_rating_mph": 40,
-      "weight_oz": 11,
-      "automatic_open": true
-    },
-    "description": "StormShield durability in a pocket-friendly size. The perfect entry point to the StormShield lineup.",
-    "reviews_summary": "Compact and tough for its size. Great value, but the small canopy won't cover your shoulders.",
-    "reviews": [
-      { "name": "Olivia C.", "date": "2024-09-03", "rating": 4, "text": "Love the pocket size and the StormShield quality. Just wish it were a bit wider." },
-      { "name": "Sam W.", "date": "2024-08-08", "rating": 4, "text": "Surprisingly wind-resistant for such a small umbrella. Great commuter pick." },
-      { "name": "Lisa B.", "date": "2024-07-22", "rating": 4, "text": "My bag umbrella for years. Handles gusts that destroy my friends' cheap umbrellas." },
-      { "name": "Jake R.", "date": "2024-06-14", "rating": 4, "text": "Solid quality, but you do sacrifice coverage. Fine for solo walking, not for sharing." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a1a2e/6385ff?text=StormShield+Mini"
-  },
-  {
-    "id": "13",
-    "name": "Aeroflex Sport",
-    "brand": "Aeroflex",
-    "price": 50.00,
+    "id": "5",
+    "name": "Totes Auto Open Stick Umbrella, Wood J-Hook - Black",
+    "brand": "totes",
+    "price": 29.99,
     "rating": 4.4,
-    "review_count": 78,
+    "review_count": 11,
     "specs": {
-      "frame_material": "Carbon Fiber",
-      "canopy_size_inches": 44,
-      "wind_rating_mph": 50,
-      "weight_oz": 13,
-      "automatic_open": true
-    },
-    "description": "Designed for active lifestyles with ergonomic grip and reflective trim for visibility in low light.",
-    "reviews_summary": "Athletes and commuters love the ergonomic handle and reflective safety features.",
-    "reviews": [
-      { "name": "Tyler A.", "date": "2024-08-29", "rating": 5, "text": "The reflective trim is genius for running errands after dark. Drivers can actually see me." },
-      { "name": "Maria E.", "date": "2024-07-14", "rating": 4, "text": "The ergonomic grip is noticeably more comfortable than other umbrellas. Great for long walks." },
-      { "name": "Evan N.", "date": "2024-06-20", "rating": 4, "text": "Lightweight, tough, and the reflective elements give real peace of mind on dark winter evenings." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a2e1a/b5ff63?text=Aeroflex+Sport"
-  },
-  {
-    "id": "14",
-    "name": "Aeroflex Nano",
-    "brand": "Aeroflex",
-    "price": 38.00,
-    "rating": 4.2,
-    "review_count": 61,
-    "specs": {
-      "frame_material": "Carbon Fiber",
-      "canopy_size_inches": 34,
-      "wind_rating_mph": 35,
-      "weight_oz": 7,
-      "automatic_open": false
-    },
-    "description": "The world's lightest serious umbrella at just 7oz. Disappears into any bag or coat pocket.",
-    "reviews_summary": "Incredibly light and portable. Perfect backup umbrella, though not built for severe weather.",
-    "reviews": [
-      { "name": "Hannah D.", "date": "2024-09-06", "rating": 5, "text": "Seven ounces! I forget it's in my jacket pocket. Life-saver for unexpected drizzles." },
-      { "name": "Oscar P.", "date": "2024-08-13", "rating": 4, "text": "Not for storms, but for a just-in-case umbrella it's unbeatable. Disappears in my laptop bag." },
-      { "name": "Lucy K.", "date": "2024-07-08", "rating": 3, "text": "Impressively light but definitely small. Fine for light rain, I'd want something bigger for a downpour." }
-    ],
-    "image_url": "https://placehold.co/400x400/1a2e2e/63ffff?text=Aeroflex+Nano"
-  },
-  {
-    "id": "15",
-    "name": "UrbanDry Metro",
-    "brand": "UrbanDry",
-    "price": 42.00,
-    "rating": 4.5,
-    "review_count": 103,
-    "specs": {
-      "frame_material": "Aluminum",
-      "canopy_size_inches": 44,
-      "wind_rating_mph": 35,
-      "weight_oz": 15,
-      "automatic_open": true
-    },
-    "description": "The commuter's choice. Designed specifically for urban transit with a quick-dry canopy coating.",
-    "reviews_summary": "The quick-dry coating is a standout feature. Perfect size for busy sidewalks and transit.",
-    "reviews": [
-      { "name": "Wei C.", "date": "2024-09-04", "rating": 5, "text": "The quick-dry coating is real — I shake it once and it's practically dry before I get on the train." },
-      { "name": "Rebecca H.", "date": "2024-08-17", "rating": 5, "text": "Best commuter umbrella I've found. Not too big for crowded sidewalks, but covers enough." },
-      { "name": "Daniel T.", "date": "2024-07-23", "rating": 4, "text": "Great city umbrella. The quick-dry feature means I'm not dripping all over the subway anymore." }
-    ],
-    "image_url": "https://placehold.co/400x400/2e2e1a/ffe563?text=UrbanDry+Metro"
-  },
-  {
-    "id": "16",
-    "name": "UrbanDry Pocket",
-    "brand": "UrbanDry",
-    "price": 28.00,
-    "rating": 3.8,
-    "review_count": 47,
-    "specs": {
-      "frame_material": "Aluminum",
-      "canopy_size_inches": 32,
-      "wind_rating_mph": 20,
-      "weight_oz": 9,
-      "automatic_open": false
-    },
-    "description": "Ultra-compact budget umbrella. Folds down to just 7 inches for easy pocket storage.",
-    "reviews_summary": "Extremely portable and affordable. Not for storms, but great as a backup umbrella.",
-    "reviews": [
-      { "name": "Jess F.", "date": "2024-08-26", "rating": 4, "text": "Fits in my back pocket. Saved me from getting soaked more times than I can count." },
-      { "name": "Nathan R.", "date": "2024-07-11", "rating": 4, "text": "For $28 you get a surprisingly decent pocket umbrella. Don't expect it to survive a gale though." },
-      { "name": "Kelly M.", "date": "2024-06-30", "rating": 3, "text": "Good for light rain. The small size means your shoulders might get wet, but it's so portable." }
-    ],
-    "image_url": "https://placehold.co/400x400/2e2e1a/ffa563?text=UrbanDry+Pocket"
-  },
-  {
-    "id": "17",
-    "name": "RoyalCanopy Heritage",
-    "brand": "RoyalCanopy",
-    "price": 120.00,
-    "rating": 4.9,
-    "review_count": 38,
-    "specs": {
-      "frame_material": "Bamboo and Fiberglass",
-      "canopy_size_inches": 50,
-      "wind_rating_mph": 55,
-      "weight_oz": 22,
-      "automatic_open": false
-    },
-    "description": "Handcrafted with sustainable bamboo shaft and premium Japanese canopy fabric. A collector's piece.",
-    "reviews_summary": "Stunning craftsmanship that feels like art. The bamboo handle is warm and uniquely beautiful.",
-    "reviews": [
-      { "name": "Margaret S.", "date": "2024-09-09", "rating": 5, "text": "This isn't just an umbrella, it's a statement piece. The bamboo shaft is silky smooth and gorgeous." },
-      { "name": "William A.", "date": "2024-08-15", "rating": 5, "text": "Bought it as a splurge and have zero regrets. The Japanese canopy fabric has a subtle sheen that's mesmerizing." },
-      { "name": "Ingrid V.", "date": "2024-07-20", "rating": 5, "text": "I've owned luxury umbrellas before. This is in a different league. The bamboo handle ages beautifully." }
-    ],
-    "image_url": "https://placehold.co/400x400/2e1a1a/ffb563?text=RoyalCanopy+Heritage"
-  },
-  {
-    "id": "18",
-    "name": "RoyalCanopy Grand",
-    "brand": "RoyalCanopy",
-    "price": 85.00,
-    "rating": 4.7,
-    "review_count": 82,
-    "specs": {
-      "frame_material": "Wood and Fiberglass",
-      "canopy_size_inches": 56,
-      "wind_rating_mph": 50,
-      "weight_oz": 26,
-      "automatic_open": true
-    },
-    "description": "Oversized premium umbrella with a distinguished walnut handle. Designed to shelter two with room to spare.",
-    "reviews_summary": "Perfect for couples. The walnut handle and massive coverage make it feel like a portable roof.",
-    "reviews": [
-      { "name": "George E.", "date": "2024-09-07", "rating": 5, "text": "My wife and I walk under it side by side with room to spare. The walnut handle is a work of art." },
-      { "name": "Claire D.", "date": "2024-08-11", "rating": 5, "text": "Heavy but majestic. We take it everywhere together and it makes rainy walks actually enjoyable." },
-      { "name": "Steven K.", "date": "2024-07-03", "rating": 4, "text": "Massive coverage and beautiful design. Gets a bit heavy after carrying it all day though." }
-    ],
-    "image_url": "https://placehold.co/400x400/2e1a1a/ff8563?text=RoyalCanopy+Grand"
-  },
-  {
-    "id": "19",
-    "name": "LuxeRain Noir",
-    "brand": "LuxeRain",
-    "price": 68.00,
-    "rating": 4.6,
-    "review_count": 96,
-    "specs": {
-      "frame_material": "Carbon Fiber",
-      "canopy_size_inches": 46,
-      "wind_rating_mph": 45,
-      "weight_oz": 17,
-      "automatic_open": true
-    },
-    "description": "All-black premium design with matte hardware and a monochrome logo. Understated luxury for every weather.",
-    "reviews_summary": "Sleek all-black aesthetic turns heads. Strong performance to back up the striking looks.",
-    "reviews": [
-      { "name": "Andre B.", "date": "2024-09-11", "rating": 5, "text": "The matte black finish is stunning. Every detail screams quality, from the handle to the tip." },
-      { "name": "Julia W.", "date": "2024-08-19", "rating": 5, "text": "Looks like something out of a fashion magazine but performs like a proper storm umbrella." },
-      { "name": "Blake T.", "date": "2024-07-26", "rating": 4, "text": "Best-looking umbrella I've ever owned. Solid wind resistance too. Minor flex in 45mph gusts." }
-    ],
-    "image_url": "https://placehold.co/400x400/0a0a0a/aaaaaa?text=LuxeRain+Noir"
-  },
-  {
-    "id": "20",
-    "name": "LuxeRain Celestial",
-    "brand": "LuxeRain",
-    "price": 78.00,
-    "rating": 4.7,
-    "review_count": 64,
-    "specs": {
-      "frame_material": "Fiberglass",
+      "frame_material": "Wood shaft, metal ribs",
       "canopy_size_inches": 48,
-      "wind_rating_mph": 50,
-      "weight_oz": 19,
+      "wind_rating_mph": 35,
+      "weight_oz": 16,
       "automatic_open": true
     },
-    "description": "Deep navy canopy with a printed constellation map interior. Reveals the night sky when you look up.",
-    "reviews_summary": "The constellation print interior is a magical surprise. Strong construction complements the artistry.",
+    "description": "A timeless black stick umbrella with a genuine wood J-hook handle and wooden shaft. Auto open at the push of a button, with a water-repellent canopy that keeps business attire dry.",
+    "reviews_summary": "A classic, professional-looking umbrella that buyers call good value; wind resistance is average.",
     "reviews": [
-      { "name": "Nina R.", "date": "2024-09-08", "rating": 5, "text": "Opened it and gasped. The constellation interior is absolutely magical. And it handles wind beautifully." },
-      { "name": "Lucas F.", "date": "2024-08-06", "rating": 5, "text": "Rainy days became something I look forward to. Looking up and seeing the cosmos is oddly calming." },
-      { "name": "Sara J.", "date": "2024-07-15", "rating": 4, "text": "Gorgeous design and solid build. The interior print is even more beautiful in person than in photos." }
+      {
+        "name": "Richard A.",
+        "date": "2026-09-05",
+        "rating": 5,
+        "text": "Looks sharp with a suit. The wooden handle is smooth and solid."
+      },
+      {
+        "name": "Fatima B.",
+        "date": "2026-08-17",
+        "rating": 4,
+        "text": "Elegant and dependable. Not built for gale-force winds though."
+      },
+      {
+        "name": "George L.",
+        "date": "2026-07-29",
+        "rating": 5,
+        "text": "Hooks over my arm while I carry my briefcase. Very practical."
+      },
+      {
+        "name": "Ana C.",
+        "date": "2026-07-10",
+        "rating": 4,
+        "text": "Auto open is handy. The canopy is generous for a stick umbrella."
+      },
+      {
+        "name": "Steve O.",
+        "date": "2026-06-21",
+        "rating": 3,
+        "text": "Nice umbrella but one rib tip came loose after a few months."
+      },
+      {
+        "name": "Helen Y.",
+        "date": "2026-06-02",
+        "rating": 5,
+        "text": "Classic totes. My father had one just like it."
+      },
+      {
+        "name": "Kunal D.",
+        "date": "2026-05-14",
+        "rating": 5,
+        "text": "Water rolls right off. Dries quickly on the stand at work."
+      },
+      {
+        "name": "Brianna F.",
+        "date": "2026-04-25",
+        "rating": 4,
+        "text": "Great value for a wood handle umbrella."
+      },
+      {
+        "name": "Paul M.",
+        "date": "2026-04-06",
+        "rating": 5,
+        "text": "Sturdy and handsome. No complaints."
+      },
+      {
+        "name": "Irene S.",
+        "date": "2026-03-18",
+        "rating": 4,
+        "text": "Good size for one person plus a bag."
+      },
+      {
+        "name": "Owen T.",
+        "date": "2026-02-27",
+        "rating": 4,
+        "text": "Solid everyday umbrella. Wish the strap snap were stronger."
+      }
     ],
-    "image_url": "https://placehold.co/400x400/0a0a2e/6363ff?text=LuxeRain+Celestial"
+    "image_url": "/img/product-5.jpg"
   },
   {
-    "id": "21",
-    "name": "LuxeRain Aurora",
-    "brand": "LuxeRain",
-    "price": 58.00,
-    "rating": 4.3,
-    "review_count": 72,
+    "id": "6",
+    "name": "RUMBRELLA UV Stick Umbrella - Bright Red",
+    "brand": "RUMBRELLA",
+    "price": 25.99,
+    "rating": 4.4,
+    "review_count": 12,
     "specs": {
-      "frame_material": "Aluminum",
-      "canopy_size_inches": 42,
+      "frame_material": "Fiberglass ribs, metal shaft",
+      "canopy_size_inches": 51,
       "wind_rating_mph": 40,
       "weight_oz": 14,
       "automatic_open": true
     },
-    "description": "Iridescent canopy that shifts color in sunlight. A fashion-forward umbrella that doubles as a parasol.",
-    "reviews_summary": "Eye-catching iridescent canopy draws compliments constantly. Good everyday performance.",
+    "description": "A bold bright red 51-inch stick umbrella with a matching red J-hook handle. The UPF 50+ canopy blocks sun as well as rain, and it opens automatically with one press.",
+    "reviews_summary": "Buyers love the vivid red and the big canopy for both rain and sun; some find the handle a little slippery when wet.",
     "reviews": [
-      { "name": "Mia S.", "date": "2024-09-01", "rating": 5, "text": "The color-shifting canopy is absolutely mesmerizing. I use it as a parasol on sunny days too." },
-      { "name": "Ian G.", "date": "2024-08-09", "rating": 4, "text": "So many compliments on the iridescent fabric. Decent wind resistance for a fashion-forward umbrella." },
-      { "name": "Yuki T.", "date": "2024-07-19", "rating": 4, "text": "Beautiful umbrella. The color shift effect is subtle but stunning. Works well in moderate rain." }
+      {
+        "name": "Jessica N.",
+        "date": "2026-09-02",
+        "rating": 5,
+        "text": "The red is gorgeous and exactly like the pictures. Huge canopy."
+      },
+      {
+        "name": "Mohammed A.",
+        "date": "2026-08-14",
+        "rating": 4,
+        "text": "Works for rain and summer sun. Handle gets a bit slick when wet."
+      },
+      {
+        "name": "Emma G.",
+        "date": "2026-07-26",
+        "rating": 5,
+        "text": "Easy to spot in a crowd. My kids always find me."
+      },
+      {
+        "name": "Carlos V.",
+        "date": "2026-07-07",
+        "rating": 5,
+        "text": "Opens instantly. Covers me and my backpack completely."
+      },
+      {
+        "name": "Tanya R.",
+        "date": "2026-06-18",
+        "rating": 4,
+        "text": "Pretty sturdy for the price. Took one strong gust fine."
+      },
+      {
+        "name": "Liam H.",
+        "date": "2026-05-30",
+        "rating": 3,
+        "text": "Nice color, but the closing strap started fraying."
+      },
+      {
+        "name": "Pooja S.",
+        "date": "2026-05-11",
+        "rating": 5,
+        "text": "Use it at outdoor markets for shade. Genuinely cooler underneath."
+      },
+      {
+        "name": "Nathan W.",
+        "date": "2026-04-22",
+        "rating": 4,
+        "text": "Big and bright. A little long for my car door pocket."
+      },
+      {
+        "name": "Elena M.",
+        "date": "2026-04-03",
+        "rating": 5,
+        "text": "Bought red to match my raincoat. Perfect match."
+      },
+      {
+        "name": "Hugo B.",
+        "date": "2026-03-15",
+        "rating": 4,
+        "text": "Good umbrella, fair price."
+      },
+      {
+        "name": "Riya K.",
+        "date": "2026-02-24",
+        "rating": 5,
+        "text": "The matching red hook handle is such a nice touch."
+      },
+      {
+        "name": "Jack F.",
+        "date": "2026-02-05",
+        "rating": 4,
+        "text": "Solid for everyday rain."
+      }
     ],
-    "image_url": "https://placehold.co/400x400/1a0a2e/cc63ff?text=LuxeRain+Aurora"
+    "image_url": "/img/product-6.jpg"
   },
   {
-    "id": "22",
-    "name": "LuxeRain Prism",
-    "brand": "LuxeRain",
-    "price": 48.00,
-    "rating": 3.5,
-    "review_count": 41,
+    "id": "7",
+    "name": "G4Free 62\" Golf Umbrella - Navy Blue",
+    "brand": "G4Free",
+    "price": 29.99,
+    "rating": 4.6,
+    "review_count": 13,
     "specs": {
-      "frame_material": "Steel",
-      "canopy_size_inches": 40,
-      "wind_rating_mph": 30,
+      "frame_material": "Fiberglass",
+      "canopy_size_inches": 62,
+      "wind_rating_mph": 55,
       "weight_oz": 18,
+      "automatic_open": true
+    },
+    "description": "An oversized navy blue golf umbrella with a vented double canopy that lets gusts pass through instead of flipping it. The 62-inch canopy fits two or three people, on a full fiberglass frame with a comfortable foam grip.",
+    "reviews_summary": "Customers rave about the massive coverage and wind stability; the main downside is its size when closed.",
+    "reviews": [
+      {
+        "name": "Brandon H.",
+        "date": "2026-08-30",
+        "rating": 5,
+        "text": "Took it to the course in steady wind and rain. Double canopy works."
+      },
+      {
+        "name": "Aditi R.",
+        "date": "2026-08-11",
+        "rating": 5,
+        "text": "Three of us fit under it at a kids' soccer game."
+      },
+      {
+        "name": "Mark C.",
+        "date": "2026-07-23",
+        "rating": 4,
+        "text": "Enormous and sturdy. Too long to fit in my car's side pocket."
+      },
+      {
+        "name": "Julia S.",
+        "date": "2026-07-04",
+        "rating": 5,
+        "text": "The navy blue looks classy. Feels well made."
+      },
+      {
+        "name": "Rob T.",
+        "date": "2026-06-15",
+        "rating": 5,
+        "text": "Held up in a thunderstorm walk to the parking lot. Didn't flip."
+      },
+      {
+        "name": "Nadia F.",
+        "date": "2026-05-27",
+        "rating": 4,
+        "text": "Great coverage. Opening it in a crowd needs some room."
+      },
+      {
+        "name": "Kevin L.",
+        "date": "2026-05-08",
+        "rating": 5,
+        "text": "Fiberglass frame feels indestructible."
+      },
+      {
+        "name": "Monica P.",
+        "date": "2026-04-19",
+        "rating": 4,
+        "text": "Excellent value for a golf umbrella this big."
+      },
+      {
+        "name": "Sean D.",
+        "date": "2026-03-31",
+        "rating": 5,
+        "text": "Keeps me and my golf bag dry. Exactly what I needed."
+      },
+      {
+        "name": "Yusuf O.",
+        "date": "2026-03-12",
+        "rating": 5,
+        "text": "Vents really do stop it catching the wind like a sail."
+      },
+      {
+        "name": "Claire B.",
+        "date": "2026-02-21",
+        "rating": 4,
+        "text": "Heavy-ish, but that's the tradeoff for this size."
+      },
+      {
+        "name": "Arun V.",
+        "date": "2026-02-02",
+        "rating": 5,
+        "text": "Best big umbrella I've owned."
+      },
+      {
+        "name": "Tessa G.",
+        "date": "2026-01-14",
+        "rating": 4,
+        "text": "Love the color. Grip foam shows wear after a few months."
+      }
+    ],
+    "image_url": "/img/product-7.jpg"
+  },
+  {
+    "id": "8",
+    "name": "SIEPASA Inverted Umbrella - Starry Sky",
+    "brand": "SIEPASA",
+    "price": 27.99,
+    "rating": 4.5,
+    "review_count": 11,
+    "specs": {
+      "frame_material": "Fiberglass ribs, steel shaft",
+      "canopy_size_inches": 49,
+      "wind_rating_mph": 45,
+      "weight_oz": 19,
       "automatic_open": false
     },
-    "description": "Bold geometric print canopy with a chrome handle. Makes a statement even on the grayest days.",
-    "reviews_summary": "Love-it-or-hate-it design with mixed durability feedback. The print is genuinely unique.",
+    "description": "A reverse-folding double-layer umbrella with a dark navy exterior and a starry galaxy print inside. It closes wet-side-in so it won't drip in your car, stands up on its own when closed, and has a hands-free C-shaped handle.",
+    "reviews_summary": "People love the galaxy print and the no-drip inverted closing; the manual open takes a little getting used to.",
     "reviews": [
-      { "name": "Kai L.", "date": "2024-08-24", "rating": 4, "text": "The geometric print is wild and I'm here for it. Definitely a conversation starter." },
-      { "name": "Tina M.", "date": "2024-07-13", "rating": 3, "text": "Love the design but the steel frame feels heavy for its size. Wind resistance is just okay." },
-      { "name": "Raj P.", "date": "2024-06-25", "rating": 3, "text": "Unique look but the build quality doesn't quite match the price. Chrome handle looks great though." },
-      { "name": "Amanda K.", "date": "2024-06-10", "rating": 4, "text": "Bought it for the pattern and it does not disappoint. A head-turner in gray weather." }
+      {
+        "name": "Aisha M.",
+        "date": "2026-08-27",
+        "rating": 5,
+        "text": "Looking up at the galaxy print on a rainy day never gets old."
+      },
+      {
+        "name": "Derek S.",
+        "date": "2026-08-08",
+        "rating": 5,
+        "text": "Closing it inside-out means no puddle in my car. Brilliant."
+      },
+      {
+        "name": "Lily C.",
+        "date": "2026-07-20",
+        "rating": 4,
+        "text": "Beautiful, but it's manual open, so read the instructions first."
+      },
+      {
+        "name": "Rohan J.",
+        "date": "2026-07-01",
+        "rating": 5,
+        "text": "C-handle hooks over my arm so I can hold my phone and coffee."
+      },
+      {
+        "name": "Samantha E.",
+        "date": "2026-06-12",
+        "rating": 4,
+        "text": "Stands up by itself to dry. Fun conversation piece."
+      },
+      {
+        "name": "Victor N.",
+        "date": "2026-05-24",
+        "rating": 3,
+        "text": "Great idea, but heavier than a regular stick umbrella."
+      },
+      {
+        "name": "Kavya P.",
+        "date": "2026-05-05",
+        "rating": 5,
+        "text": "Bought for my daughter and ended up keeping it."
+      },
+      {
+        "name": "Ian R.",
+        "date": "2026-04-16",
+        "rating": 4,
+        "text": "Double canopy handles wind well. Print is vivid."
+      },
+      {
+        "name": "Fiona L.",
+        "date": "2026-03-28",
+        "rating": 5,
+        "text": "Getting in and out of the car is so much easier with this."
+      },
+      {
+        "name": "Carlos D.",
+        "date": "2026-03-09",
+        "rating": 4,
+        "text": "Good quality. The button placement took a day to learn."
+      },
+      {
+        "name": "Mei W.",
+        "date": "2026-02-18",
+        "rating": 5,
+        "text": "The inside is stunning. Worth it just for that."
+      }
     ],
-    "image_url": "https://placehold.co/400x400/2e1a2e/ff63a5?text=LuxeRain+Prism"
+    "image_url": "/img/product-8.jpg"
+  },
+  {
+    "id": "9",
+    "name": "Balios Folding Umbrella, Real Wood Handle - Olive Green",
+    "brand": "Balios",
+    "price": 44.99,
+    "rating": 4.6,
+    "review_count": 11,
+    "specs": {
+      "frame_material": "Steel shaft, fiberglass ribs",
+      "canopy_size_inches": 41,
+      "wind_rating_mph": 45,
+      "weight_oz": 14,
+      "automatic_open": true
+    },
+    "description": "A London-designed olive green folding umbrella with a handmade real-wood handle. Opens to a 40.5-inch vented double canopy, folds to 13.8 inches, and weighs 13.9 ounces with one-touch auto open and close.",
+    "reviews_summary": "A premium-feeling compact that people buy for the wood handle and muted olive color; a couple of reviewers wanted a bigger canopy.",
+    "reviews": [
+      {
+        "name": "Alistair P.",
+        "date": "2026-08-24",
+        "rating": 5,
+        "text": "The wooden handle makes it feel like a proper British umbrella. Lovely olive shade."
+      },
+      {
+        "name": "Divya T.",
+        "date": "2026-08-05",
+        "rating": 5,
+        "text": "Compact enough for my handbag but looks expensive."
+      },
+      {
+        "name": "Ryan M.",
+        "date": "2026-07-17",
+        "rating": 4,
+        "text": "Beautiful build. Canopy is on the smaller side for tall people."
+      },
+      {
+        "name": "Sophie K.",
+        "date": "2026-06-28",
+        "rating": 5,
+        "text": "Vented canopy handled a windy bridge crossing perfectly."
+      },
+      {
+        "name": "Hassan A.",
+        "date": "2026-06-09",
+        "rating": 5,
+        "text": "Got it as a gift. Everyone asks where it's from."
+      },
+      {
+        "name": "Laura B.",
+        "date": "2026-05-21",
+        "rating": 4,
+        "text": "Auto open and close is smooth. Slightly heavy for a folding one."
+      },
+      {
+        "name": "Matteo G.",
+        "date": "2026-05-02",
+        "rating": 5,
+        "text": "The olive green is subtle and stylish, exactly as pictured."
+      },
+      {
+        "name": "Jenna S.",
+        "date": "2026-04-13",
+        "rating": 4,
+        "text": "Premium feel. The sleeve could be nicer for the price."
+      },
+      {
+        "name": "Siddharth R.",
+        "date": "2026-03-25",
+        "rating": 5,
+        "text": "Handle is warm and comfortable, not cold like metal ones."
+      },
+      {
+        "name": "Clara W.",
+        "date": "2026-03-06",
+        "rating": 5,
+        "text": "My favorite umbrella I've ever owned."
+      },
+      {
+        "name": "Eli F.",
+        "date": "2026-02-15",
+        "rating": 4,
+        "text": "Great quality, wish it came in a larger size."
+      }
+    ],
+    "image_url": "/img/product-9.jpg"
+  },
+  {
+    "id": "10",
+    "name": "Bodyguard Inverted Compact Umbrella - UV Pink",
+    "brand": "Bodyguard",
+    "price": 24.99,
+    "rating": 4.5,
+    "review_count": 12,
+    "specs": {
+      "frame_material": "Fiberglass ribs, aluminum frame",
+      "canopy_size_inches": 46,
+      "wind_rating_mph": 50,
+      "weight_oz": 15,
+      "automatic_open": true
+    },
+    "description": "A reverse-folding compact umbrella with a black exterior and a soft pink UV-coated interior. Ten reinforced fiberglass ribs, a UPF 50+ silver coating for sun, a 360 degree reflective stripe for night visibility, and one-button auto open and close.",
+    "reviews_summary": "Shoppers like the pretty pink inside, the reflective stripe and the sun protection; a few say the inverted fold takes practice.",
+    "reviews": [
+      {
+        "name": "Ashley R.",
+        "date": "2026-08-21",
+        "rating": 5,
+        "text": "The pink underside is so pretty and it keeps me cooler in the sun."
+      },
+      {
+        "name": "Zara H.",
+        "date": "2026-08-02",
+        "rating": 4,
+        "text": "Inverted closing is great for the car. Took a few tries to get used to."
+      },
+      {
+        "name": "Nikhil S.",
+        "date": "2026-07-14",
+        "rating": 5,
+        "text": "Reflective stripe makes me feel safer walking home at night."
+      },
+      {
+        "name": "Brooke A.",
+        "date": "2026-06-25",
+        "rating": 5,
+        "text": "Ten ribs feel much sturdier than my old compact."
+      },
+      {
+        "name": "Tara M.",
+        "date": "2026-06-06",
+        "rating": 4,
+        "text": "Good umbrella, a little heavier than I hoped."
+      },
+      {
+        "name": "Jade L.",
+        "date": "2026-05-18",
+        "rating": 5,
+        "text": "Use it for rain and for summer walks. Pink is exactly as shown."
+      },
+      {
+        "name": "Kyle P.",
+        "date": "2026-04-29",
+        "rating": 3,
+        "text": "Nice design but the auto close sometimes needs a second press."
+      },
+      {
+        "name": "Meera J.",
+        "date": "2026-04-10",
+        "rating": 5,
+        "text": "Folds wet side in so my bag stays dry."
+      },
+      {
+        "name": "Natalie O.",
+        "date": "2026-03-22",
+        "rating": 4,
+        "text": "Pretty and practical. Cover bag is a nice bonus."
+      },
+      {
+        "name": "Amira K.",
+        "date": "2026-03-03",
+        "rating": 5,
+        "text": "Held up through a windy week in Chicago."
+      },
+      {
+        "name": "Grace H.",
+        "date": "2026-02-12",
+        "rating": 4,
+        "text": "Great value for all the features."
+      },
+      {
+        "name": "Lena V.",
+        "date": "2026-01-24",
+        "rating": 5,
+        "text": "Bought two, one for me and one for my sister."
+      }
+    ],
+    "image_url": "/img/product-10.jpg"
+  },
+  {
+    "id": "11",
+    "name": "BAODINI Compact UV Umbrella - Beige",
+    "brand": "BAODINI",
+    "price": 19.99,
+    "rating": 4.3,
+    "review_count": 10,
+    "specs": {
+      "frame_material": "Fiberglass ribs, metal shaft",
+      "canopy_size_inches": 42,
+      "wind_rating_mph": 30,
+      "weight_oz": 12,
+      "automatic_open": true
+    },
+    "description": "A light beige compact umbrella for rain and sun, with a UPF 50+ coating that blocks 99% of UV rays. Eight-rib windproof frame, push-button auto open and close, and small enough for a medium purse.",
+    "reviews_summary": "A lightweight everyday pick that people like for sun protection and the neutral beige color; not built for heavy storms.",
+    "reviews": [
+      {
+        "name": "Riya M.",
+        "date": "2026-08-18",
+        "rating": 5,
+        "text": "Neutral beige goes with everything. Fits in my purse easily."
+      },
+      {
+        "name": "Hana Y.",
+        "date": "2026-07-30",
+        "rating": 4,
+        "text": "Great for sunny days. Noticeably cooler underneath."
+      },
+      {
+        "name": "Anthony C.",
+        "date": "2026-07-11",
+        "rating": 4,
+        "text": "Light and handy. Flipped once in strong wind but popped back."
+      },
+      {
+        "name": "Sneha P.",
+        "date": "2026-06-22",
+        "rating": 5,
+        "text": "Use it every day on my walk to the station. Love it."
+      },
+      {
+        "name": "Megan L.",
+        "date": "2026-06-03",
+        "rating": 3,
+        "text": "Fine for drizzle, but I wouldn't trust it in a storm."
+      },
+      {
+        "name": "Yara S.",
+        "date": "2026-05-15",
+        "rating": 5,
+        "text": "Soft beige color looks elegant. Auto open is quick."
+      },
+      {
+        "name": "Jin K.",
+        "date": "2026-04-26",
+        "rating": 4,
+        "text": "Good value for a UV umbrella."
+      },
+      {
+        "name": "Ivy R.",
+        "date": "2026-04-07",
+        "rating": 5,
+        "text": "Super light. I forget it's in my bag."
+      },
+      {
+        "name": "Aarav G.",
+        "date": "2026-03-19",
+        "rating": 4,
+        "text": "Handle feels nice. Canopy is right for one person."
+      },
+      {
+        "name": "Beth N.",
+        "date": "2026-02-28",
+        "rating": 4,
+        "text": "Does the job for everyday use."
+      }
+    ],
+    "image_url": "/img/product-11.jpg"
+  },
+  {
+    "id": "12",
+    "name": "totes Kids Clear Bubble Umbrella - Rainbow Dots",
+    "brand": "totes",
+    "price": 16.99,
+    "rating": 4.6,
+    "review_count": 10,
+    "specs": {
+      "frame_material": "Stainless steel",
+      "canopy_size_inches": 38,
+      "wind_rating_mph": 20,
+      "weight_oz": 9,
+      "automatic_open": true
+    },
+    "description": "A kid-sized clear dome bubble umbrella covered in rainbow polka dots. The see-through canopy lets little ones watch where they're going, with a child-friendly rubber hook handle and lightweight frame.",
+    "reviews_summary": "Parents love the cheerful rainbow dots and the see-through dome for safety; it is sized for small children only.",
+    "reviews": [
+      {
+        "name": "Jennifer W.",
+        "date": "2026-08-15",
+        "rating": 5,
+        "text": "My 5-year-old refuses to leave the house without it. The rainbow dots are adorable."
+      },
+      {
+        "name": "Ahmed R.",
+        "date": "2026-07-27",
+        "rating": 5,
+        "text": "Clear dome means she can see traffic while walking to school."
+      },
+      {
+        "name": "Kristen B.",
+        "date": "2026-07-08",
+        "rating": 4,
+        "text": "Cute and sturdy. A bit small once kids are past about 8."
+      },
+      {
+        "name": "Ravi T.",
+        "date": "2026-06-19",
+        "rating": 5,
+        "text": "Light enough for my son to carry himself."
+      },
+      {
+        "name": "Melissa G.",
+        "date": "2026-05-31",
+        "rating": 4,
+        "text": "Great quality. Wish the handle were a little thicker for small hands."
+      },
+      {
+        "name": "Carmen D.",
+        "date": "2026-05-12",
+        "rating": 5,
+        "text": "Colors are bright and cheerful, just like the photo."
+      },
+      {
+        "name": "Tim O.",
+        "date": "2026-04-23",
+        "rating": 5,
+        "text": "Survived a year of preschool abuse."
+      },
+      {
+        "name": "Sadia N.",
+        "date": "2026-04-04",
+        "rating": 4,
+        "text": "Good kids umbrella. Dome keeps the backpack dry too."
+      },
+      {
+        "name": "Heather L.",
+        "date": "2026-03-16",
+        "rating": 5,
+        "text": "Bought two for my twins. No fights over colors since they match."
+      },
+      {
+        "name": "Andre P.",
+        "date": "2026-02-25",
+        "rating": 4,
+        "text": "Nice and safe design. Handle end is soft."
+      }
+    ],
+    "image_url": "/img/product-12.jpg"
+  },
+  {
+    "id": "13",
+    "name": "Ucrinei Van Gogh Folding Umbrella - Almond Blossom",
+    "brand": "Ucrinei",
+    "price": 22.99,
+    "rating": 4.5,
+    "review_count": 11,
+    "specs": {
+      "frame_material": "Alloy steel frame, fiberglass ribs",
+      "canopy_size_inches": 46,
+      "wind_rating_mph": 35,
+      "weight_oz": 14,
+      "automatic_open": true
+    },
+    "description": "A compact folding umbrella printed with Van Gogh's Almond Blossom: white blossoms on a soft sky-blue canopy. Auto open and close at the push of a button, lightweight and packable for travel.",
+    "reviews_summary": "Buyers call it a wearable piece of art and love the sky-blue blossom print; durability in heavy wind is average.",
+    "reviews": [
+      {
+        "name": "Isabella R.",
+        "date": "2026-08-12",
+        "rating": 5,
+        "text": "The almond blossom print is breathtaking. It's like carrying a painting."
+      },
+      {
+        "name": "Lucas M.",
+        "date": "2026-07-24",
+        "rating": 5,
+        "text": "Bought it for my art teacher wife. She adores it."
+      },
+      {
+        "name": "Priyanka D.",
+        "date": "2026-07-05",
+        "rating": 4,
+        "text": "Beautiful colors. Handles normal rain well, not great in heavy gusts."
+      },
+      {
+        "name": "Sophia N.",
+        "date": "2026-06-16",
+        "rating": 5,
+        "text": "The sky blue is even prettier in person."
+      },
+      {
+        "name": "Gabriel T.",
+        "date": "2026-05-28",
+        "rating": 4,
+        "text": "Lovely design, auto button works smoothly."
+      },
+      {
+        "name": "Rebecca H.",
+        "date": "2026-05-09",
+        "rating": 3,
+        "text": "Gorgeous, but one rib bent after a windy day."
+      },
+      {
+        "name": "Ananya B.",
+        "date": "2026-04-20",
+        "rating": 5,
+        "text": "Get compliments every single time I open it."
+      },
+      {
+        "name": "Felix W.",
+        "date": "2026-04-01",
+        "rating": 4,
+        "text": "Compact and light. Perfect for travel."
+      },
+      {
+        "name": "Maria C.",
+        "date": "2026-03-13",
+        "rating": 5,
+        "text": "Print is crisp and the colors haven't faded."
+      },
+      {
+        "name": "Daniel O.",
+        "date": "2026-02-22",
+        "rating": 4,
+        "text": "Pretty and practical. Canopy fits one person comfortably."
+      },
+      {
+        "name": "Hira A.",
+        "date": "2026-02-03",
+        "rating": 5,
+        "text": "Makes rainy days feel less gloomy."
+      }
+    ],
+    "image_url": "/img/product-13.jpg"
+  },
+  {
+    "id": "14",
+    "name": "Weatherman Collapsible Travel Umbrella - Black",
+    "brand": "Weatherman",
+    "price": 39.0,
+    "rating": 4.7,
+    "review_count": 12,
+    "specs": {
+      "frame_material": "Fiberglass",
+      "canopy_size_inches": 43,
+      "wind_rating_mph": 55,
+      "weight_oz": 14,
+      "automatic_open": true
+    },
+    "description": "A premium black collapsible travel umbrella built on an industrial-strength fiberglass frame and rated for winds up to 55 MPH. One-touch auto open, a 360 degree reflective trim for night visibility, and a vented canopy.",
+    "reviews_summary": "Reviewers praise the build quality and reflective trim; some wish it closed automatically too.",
+    "reviews": [
+      {
+        "name": "Michael F.",
+        "date": "2026-08-09",
+        "rating": 5,
+        "text": "Built like a tank. Reflective trim is a great safety feature."
+      },
+      {
+        "name": "Sara L.",
+        "date": "2026-07-21",
+        "rating": 4,
+        "text": "Excellent umbrella. Auto open but manual close, which I didn't expect."
+      },
+      {
+        "name": "Jonah P.",
+        "date": "2026-07-02",
+        "rating": 5,
+        "text": "Handled 50 mph gusts during a storm without flipping."
+      },
+      {
+        "name": "Alisha N.",
+        "date": "2026-06-13",
+        "rating": 5,
+        "text": "Looks sleek in black. Premium feel."
+      },
+      {
+        "name": "Brian T.",
+        "date": "2026-05-25",
+        "rating": 4,
+        "text": "Great quality, a little pricier than competitors."
+      },
+      {
+        "name": "Deepa R.",
+        "date": "2026-05-06",
+        "rating": 5,
+        "text": "The vented canopy really helps in wind."
+      },
+      {
+        "name": "Connor M.",
+        "date": "2026-04-17",
+        "rating": 5,
+        "text": "Reflective edge makes me visible when cycling home in rain."
+      },
+      {
+        "name": "Yuki S.",
+        "date": "2026-03-29",
+        "rating": 4,
+        "text": "Sturdy and well made. Slightly heavy."
+      },
+      {
+        "name": "Omar H.",
+        "date": "2026-03-10",
+        "rating": 5,
+        "text": "Replaced three cheap umbrellas with this one. Should have done it sooner."
+      },
+      {
+        "name": "Rachel D.",
+        "date": "2026-02-19",
+        "rating": 4,
+        "text": "Solid choice for a commuter."
+      },
+      {
+        "name": "Patrick C.",
+        "date": "2026-01-31",
+        "rating": 5,
+        "text": "Five stars for durability."
+      },
+      {
+        "name": "Neil G.",
+        "date": "2026-01-12",
+        "rating": 5,
+        "text": "Still going strong after a very wet spring."
+      }
+    ],
+    "image_url": "/img/product-14.jpg"
+  },
+  {
+    "id": "15",
+    "name": "Samsonite Windguard Auto Open/Close Umbrella - Black",
+    "brand": "Samsonite",
+    "price": 29.99,
+    "rating": 4.4,
+    "review_count": 11,
+    "specs": {
+      "frame_material": "Metal frame",
+      "canopy_size_inches": 42,
+      "wind_rating_mph": 45,
+      "weight_oz": 13,
+      "automatic_open": true
+    },
+    "description": "Samsonite's black Windguard compact with a Teflon-coated polyester canopy and a vented wind-guard design. Automatic open and close, Samsonite-branded rubber handle, and a 12-inch folded length.",
+    "reviews_summary": "A dependable branded compact that buyers trust; a few note the canopy is modest for heavy downpours.",
+    "reviews": [
+      {
+        "name": "William K.",
+        "date": "2026-08-06",
+        "rating": 5,
+        "text": "Samsonite quality. Vented canopy keeps it stable in wind."
+      },
+      {
+        "name": "Shreya V.",
+        "date": "2026-07-18",
+        "rating": 4,
+        "text": "Reliable and compact. Canopy is a bit small in heavy rain."
+      },
+      {
+        "name": "Adam R.",
+        "date": "2026-06-29",
+        "rating": 5,
+        "text": "Auto open and close is smooth and quick."
+      },
+      {
+        "name": "Lina F.",
+        "date": "2026-06-10",
+        "rating": 4,
+        "text": "Good travel umbrella. Fits in my carry-on side pocket."
+      },
+      {
+        "name": "Gautam S.",
+        "date": "2026-05-22",
+        "rating": 5,
+        "text": "Teflon coating sheds water instantly."
+      },
+      {
+        "name": "Kelly M.",
+        "date": "2026-05-03",
+        "rating": 4,
+        "text": "Solid build. Handle could be a touch longer."
+      },
+      {
+        "name": "Jason B.",
+        "date": "2026-04-14",
+        "rating": 3,
+        "text": "Decent, but the auto close is loud."
+      },
+      {
+        "name": "Nora P.",
+        "date": "2026-03-26",
+        "rating": 5,
+        "text": "Classic black, looks professional."
+      },
+      {
+        "name": "Vivek A.",
+        "date": "2026-03-07",
+        "rating": 4,
+        "text": "Trustworthy brand, good umbrella."
+      },
+      {
+        "name": "Emily R.",
+        "date": "2026-02-16",
+        "rating": 5,
+        "text": "Two years and still works perfectly."
+      },
+      {
+        "name": "Ahmad S.",
+        "date": "2026-01-28",
+        "rating": 4,
+        "text": "Does the job well. Nothing flashy."
+      }
+    ],
+    "image_url": "/img/product-15.jpg"
   }
 ]
