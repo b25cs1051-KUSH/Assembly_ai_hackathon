@@ -307,6 +307,20 @@ const AgentTools = (() => {
         return words;
     }
 
+    /* Which acknowledgement clip fits the user's finished turn, judged from their words before the model
+       answers: 'action' for compare, cart, checkout and review requests, 'search_products' for describing an
+       umbrella, null for chit-chat and bare confirmations (a "yes, place it" needs no filler). */
+    const ACTION_WORDS = /\b(compare|comparison|cart|basket|add|remove|take out|check ?out|buy|purchase|quantity|make it|reviews?|complain\w*|people say|tell me more|more about|details?|first one|second one|third one|last one|number (one|two|three))\b/;
+    const SEARCH_WORDS = /\b(umbrellas?|need|want|looking|find|search|show|under|below|less than|cheap\w*|dollars?|bucks|price|wind\w*|light\w*|compact|travel\w*|golf|kids?|bubble|auto\w*|stick|folding|sun|uv)\b/;
+    function ackFor(text) {
+        const said = String(text || '').toLowerCase().replace(/[^a-z0-9']+/g, ' ').trim();
+        if (!said || /\b(place|confirm)\b/.test(said)) return null;  // the order confirmation gets an answer, not a filler
+        if (ACTION_WORDS.test(said)) return 'action';
+        const names = new Set([...colorWords(), ...App.getBrands().map(b => b.toLowerCase())]);
+        if (SEARCH_WORDS.test(said) || said.split(' ').some(w => names.has(w))) return 'search_products';
+        return null;
+    }
+
     /* "show me the yellow umbrellas" → "yellow": drop filler words and word endings, so every word left must match.
        Words match as substrings, so the stem "kid" finds "kids" and "travel" finds "traveling". */
     function cleanQuery(query) {
@@ -613,5 +627,5 @@ const AgentTools = (() => {
     }
 
     // latestResults: ids of the latest search in on-screen order (read-only copy, for the agent's memory)
-    return { definitions, keyterms, run, latestResults: () => [...latestResults] };
+    return { definitions, keyterms, run, ackFor, latestResults: () => [...latestResults] };
 })();

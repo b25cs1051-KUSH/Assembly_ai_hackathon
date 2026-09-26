@@ -211,6 +211,27 @@ async function error(p) { try { await p; return null; } catch (e) { return e.mes
     const none = await error(run('show_product', {}));
     check('neither position nor product_id gives a specific error', none && none.includes('position'), `got ${none}`);
 
+    // Acknowledgement at the end of the user's turn, chosen from their words before the model answers
+    const { ackFor } = ctx.AgentTools;
+    for (const [said, want] of [
+        ['I need a windproof umbrella under 30 dollars.', 'search_products'],
+        ['Do you have yellow ones?', 'search_products'],
+        ['Anything from Totes?', 'search_products'],
+        ['Something for my kid.', 'search_products'],
+        ['Compare the first two.', 'action'],
+        ['Add it to my cart. Actually, make it two.', 'action'],
+        ['What do people complain about with the first one?', 'action'],
+        ['Check out.', 'action'],
+        ['Yes, add two of them.', 'action'],
+        ['How are you?', null],
+        ['Thank you so much.', null],
+        ['Yes, place it.', null],
+        ['No.', null],
+        ['', null],
+    ]) {
+        check(`ackFor("${said}") is ${want}`, ackFor(said) === want, `got ${ackFor(said)}`);
+    }
+
     console.log(failed ? `\n${failed} failed` : '\nall passed');
     process.exit(failed ? 1 : 0);
 })();

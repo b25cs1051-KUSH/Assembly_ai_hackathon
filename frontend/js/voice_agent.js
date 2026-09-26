@@ -56,6 +56,7 @@ Each umbrella lists its color, and other_colors if it comes in more than one. Wh
 To take an umbrella out of the comparison, add one to it, or close it, call update_compare. In the comparison, "the second one" means the second column, so pass columns for removals.
 Use update_cart to add, remove or change quantities. When the user wants to pay, call checkout, say what is in the order and the total, and ask them to confirm. If they ask to check out or buy a specific umbrella, pass it to checkout, which adds it to the cart and opens checkout in one step. Only call place_order with user_confirmed true after they clearly say yes. If they say no, do not place it.
 If nothing matches, say so and offer to relax one requirement, such as the price.
+The page already plays a short acknowledgement such as "Sure, let me look" when the user asks for something, so start your answer with the answer itself, not with "sure", "okay" or "let me look".
 You remember this whole visit. If you are given the earlier conversation and what is on screen, continue from there and never start over.`;
 
     const GREETING = "Hi, I'm your VoiceCart shopping assistant. What kind of umbrella are you looking for today?";
@@ -254,6 +255,9 @@ You remember this whole visit. If you are given the earlier conversation and wha
                     remember('user', evt.text);
                     UI.logLine('user', evt.text);
                     showUser('');
+                    // The turn is over: acknowledge a store request now, not ~1.5 s later when the model calls a tool.
+                    // A request this misses is still acknowledged on tool.call.
+                    playAck(AgentTools.ackFor(evt.text));
                 } else if (evt.text) {
                     showUser(evt.text);
                 }
@@ -686,7 +690,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             audioCtx = new AudioContext();
             playCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
             await Promise.all([audioCtx.resume(), playCtx.resume()]);
-            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=15');
+            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=16');
             if (stale()) return;
             playNode = new AudioWorkletNode(playCtx, 'playback-processor', {
                 numberOfInputs: 0,
@@ -700,7 +704,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             });
             if (stale()) { stream.getTracks().forEach(t => t.stop()); return; }
             micStream = stream;
-            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=15');
+            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=16');
             if (stale()) return;
 
             // Tokens are single-use and short-lived: mint right before connecting.

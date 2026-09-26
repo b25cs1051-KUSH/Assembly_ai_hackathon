@@ -2,6 +2,7 @@
    page's exact tool definitions and tool results. One JSON request per stdin line, one JSON reply per stdout line:
      {"definitions": true}              → the tools array the page sends in session.update
      {"name": "...", "arguments": {...}} → {"result": ...} or {"error": "..."}
+     {"ackFor": "user's words"}         → {"ack": "search_products" | "action" | null}
    App is a stub using the same filter rule as app.js applyFilters. */
 
 const fs = require('fs');
@@ -77,6 +78,7 @@ const reply = obj => process.stdout.write(`${JSON.stringify(obj)}\n`);
 readline.createInterface({ input: process.stdin }).on('line', async line => {
     const req = JSON.parse(line);
     if (req.definitions) { reply({ definitions: ctx.AgentTools.definitions(), keyterms: ctx.AgentTools.keyterms() }); return; }
+    if ('ackFor' in req) { reply({ ack: ctx.AgentTools.ackFor(req.ackFor) }); return; }
     try {
         reply({ result: await ctx.AgentTools.run(req.name, req.arguments) });
     } catch (e) {

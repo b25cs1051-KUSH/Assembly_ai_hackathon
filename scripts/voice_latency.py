@@ -133,13 +133,17 @@ async def run_session(clips: list[tuple[str, float]], silence: tuple[int, int], 
                 for k in ("reply_id", "status", "name", "arguments", "text", "code", "message", "interrupted"):
                     if k in e:
                         rec[k] = e[k]
-                if e["type"] not in ("transcript.agent.delta", "transcript.user.delta"):
+                if e["type"] == "transcript.agent.delta":
+                    rec["_delta"] = e.get("delta", "")  # the final transcript.agent can arrive after the session ends
+                if e["type"] != "transcript.user.delta":
                     events.append(rec)
                 state["last_activity"] = now()
                 if e["type"] == "session.ready":
                     ready.set()
                 elif e["type"] in ("reply.started", "input.speech.started"):
                     state["turn_active"] = True
+                elif e["type"] == "transcript.user":
+                    rec["ack"] = tools.ask({"ackFor": e.get("text", "")})["ack"]  # the page plays a clip now if set
                 elif e["type"] == "reply.done":
                     state["turn_active"] = False
                     if e.get("status") == "interrupted":
@@ -203,6 +207,8 @@ def replies(events: list[dict]) -> list[dict]:
         elif e["type"] == "reply.audio" and cur is not None:
             cur["chunks"].append((e["t"], e["dur"]))
             cur.setdefault("pcm", []).append(e["_pcm"])
+        elif e["type"] == "transcript.agent.delta" and cur is not None:
+            cur["text"] = f'{cur["text"]} {e["_delta"].strip()}'.strip()
         elif e["type"] == "transcript.agent" and cur is not None:
             cur["text"] = e.get("text", "")
         elif e["type"] == "reply.done" and cur is not None:
@@ -228,10 +234,17 @@ def analyse_single(run: dict) -> dict:
     tool_call, tool_sent = first("tool.call"), first("tool.result.sent")
     next_reply = next((e["t"] for e in after if e["type"] == "reply.started" and tool_sent and e["t"] > tool_sent), None)
     chunks = [c for r in audio_replies for c in r["chunks"]]
-    # The page plays a recorded acknowledgement on tool.call, so the user hears something from then.
-    first_sound = min(t for t in (tool_call, chunks[0][0] if chunks else None) if t) if (tool_call or chunks) else None
+    user_final = next((e for e in after if e["type"] == "transcript.user"), None)
+    # The page plays a recorded acknowledgement at the end of the turn when the words look like a store request
+    # (ackFor), otherwise on tool.call, so the user hears something from then.
+    early_ack = user_final["t"] if user_final and user_final.get("ack") else None
+    sounds = [t for t in (early_ack, tool_call, chunks[0][0] if chunks else None) if t is not None]
+    first_sound = min(sounds) if sounds else None
     return {
         "speech_stopped": (first("input.speech.stopped") or speech_end) - speech_end,
+        "user_final": (user_final["t"] - speech_end) if user_final else None,
+        "user_text": user_final.get("text", "") if user_final else "",
+        "tool_call": (tool_call - speech_end) if tool_call else None,
         "reply_started": (first("reply.started") or speech_end) - speech_end,
         "first_audio": (chunks[0][0] - speech_end) if chunks else None,
         "first_sound": (first_sound - speech_end) if first_sound else None,
@@ -260,17 +273,19 @@ async def cmd_latency(trials: int, settings: list[tuple[int, int]], lines: list[
                 r = analyse_single(await run_session([(line, 0.0)], ms, bare=bare, voice=voice, mode=mode))
                 rows.append((ms, line, r))
                 print(f"voice={voice or 'default'} mode={mode or 'default'} silence={ms[0]}/{ms[1]} {line:8s} #{i + 1}: stopped {fmt(r['speech_stopped'])}  "
+                      f"user final {fmt(r['user_final'])}  tool.call {fmt(r['tool_call'])}  "
                       f"reply {fmt(r['reply_started'])}  first sound {fmt(r['first_sound'])}  first audio {fmt(r['first_audio'])}  "
                       f"tool→reply {fmt(r['tool_to_reply'])}  prebuffer {fmt(r['prebuffer'])}  "
                       f"chunk {fmt((r['chunk_ms'] or 0) / 1000)}  speed {fmt(r['speed'], 'x')}x  "
                       f"tool result {r['tool_bytes'] or 0} B  | {r['said'][:70]}",
                       flush=True)
     print("\nMedians (max) in ms, measured from the end of user speech:")
-    print("silence    line      first_sound        first_audio        reply_started      tool→reply         prebuffer")
+    print("silence    line      user_final         tool_call          first_sound        first_audio        reply_started      tool→reply         prebuffer")
     for ms in settings:
         for line in lines:
             rs = [r for m, l_, r in rows if m == ms and l_ == line]
-            cols = [_stat(rs, k) for k in ("first_sound", "first_audio", "reply_started", "tool_to_reply", "prebuffer")]
+            cols = [_stat(rs, k) for k in ("user_final", "tool_call", "first_sound", "first_audio", "reply_started",
+                                             "tool_to_reply", "prebuffer")]
             print(f"{ms[0]:4d}/{ms[1]:<5d} {line:9s} " + "    ".join(cols))
 
 
@@ -285,6 +300,8 @@ async def cmd_split(silence: tuple[int, int], gap: float):
     print(f"clip 'red' {s1:.2f}–{e1:.2f}s, gap {gap}s, clip 'yellow' {s2:.2f}–{e2:.2f}s\n")
     audio_run = None
     for e in run["events"]:
+        if e["type"] == "transcript.agent.delta":
+            continue
         if e["type"] == "reply.audio":
             audio_run = (audio_run or [e["t"], e["t"], 0])
             audio_run[1], audio_run[2] = e["t"], audio_run[2] + 1

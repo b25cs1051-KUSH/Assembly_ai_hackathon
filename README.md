@@ -92,11 +92,15 @@ AssemblyAI decides when the user has started speaking (`input.speech.started`) a
 Audio is discarded only when the server says the reply was interrupted. Before this rule, a pause-and-continue sentence such as "show me red umbrellas … also yellow ones" could leave a reply showing as text with no sound.
 
 ### 3. Instant acknowledgement in the agent's own voice
-A product search needs the model to decide to call a tool, our tool to run, and then the model to speak the result. That leaves seconds of silence. The moment a `tool.call` arrives, the page plays a short line such as "Sure, let me look." or "Let me find the best options for you." The line matches the tool, and lines rotate so it doesn't repeat.
+A product search needs the model to decide to call a tool, our tool to run, and then the model to speak the result. That leaves seconds of silence. The page plays a short line the moment the server ends the user's turn (`transcript.user`), without waiting for the model:
+
+- The user's words pick the line (`ackFor` in `agent_tools.js`). Describing an umbrella gets "Sure, let me look." Compare, cart, checkout and review requests get "Okay, one moment." or "Got it." Chit-chat and the "yes, place it" confirmation get nothing.
+- If the words don't look like a request but the model calls a tool anyway, the line plays on `tool.call`, as before.
+- Lines rotate so they don't repeat. The system prompt tells the model not to open with its own "sure" or "let me look".
 
 - The clips are recorded from the Voice Agent API itself, so they are in the same voice as the live agent. `scripts/record_fillers.py` asks the agent to say each line, checks the transcript matches, trims the silence and saves `frontend/audio/ack_*.pcm`.
 - A clip plays at most once per user turn, and only when the agent is otherwise silent. It goes through the same playback queue, so barge-in pauses and discards it like any other agent audio. The real answer queues straight behind it.
-- Measured on searches, the user hears the acknowledgement **3.5 s** after they stop talking. The model's own first audio came at 4.6–6.4 s across our runs (section 6).
+- Measured on searches (6 runs, 27 Sep 2026), the user hears the acknowledgement **1.9 s** after they stop talking, the moment turn detection ends the turn. Before this change it waited for `tool.call` and came at **3.4 s**. The model's own first audio is unchanged at 4.8 s, and it starts with the answer ("Four match. The first one, the TUMELLA…").
 
 ### 4. Echo safety: layered defence
 On laptop speakers the agent's voice can leak into the mic. Four layers keep the agent from interrupting itself:
@@ -121,7 +125,7 @@ Tools run in the browser and update the page, for example filtering the product 
 
 - `max_silence` dominates. The server holds its answer until it's sure the user has finished, so 4000 → 2000 saves about 2.5 s on conversational replies.
 - Going lower barely speeds up the first word, but the reply audio then arrives with multi-second gaps, which our buffer can't hide. 1000 / 2000 is the lowest setting that stays smooth.
-- A product search costs a tool round trip: the model decides to call the tool (~1 s), our tool answers in ~0.2 s, and the model speaks the result. Asking the agent to say "let me look" first didn't make audio arrive sooner, so the page plays a recorded acknowledgement on `tool.call` instead (section 3).
+- A product search costs a tool round trip: the model decides to call the tool (~1 s), our tool answers in ~0.2 s, and the model speaks the result. Asking the agent to say "let me look" first didn't make audio arrive sooner, so the page plays a recorded acknowledgement at the end of the user's turn instead (section 3).
 - The pre-buffer column shows how uneven delivery is: usually under 0.5 s, but some replies stall for several seconds mid-stream. No fixed buffer hides that without making every reply slow (section 1).
 
 #### Tuning pass (27 Sep 2026): three ideas, none kept
@@ -136,7 +140,7 @@ The script now answers tool calls with the page's own `agent_tools.js` (run in N
 
 - Chit-chat calls no tool, so the tool-result trim cannot affect it. Its 3.40 → 3.67 s shift shows run-to-run noise of about ±0.3 s.
 - Typical search runs land at 4.68–4.82 s in the baseline, the short prompt and the trimmed results alike. The model's time to decide on a tool and speak doesn't depend on a few hundred bytes of prompt or result.
-- With the acknowledgement clip, the user hears something 3.4 s after a search request in every variant.
+- With the acknowledgement clip, the user heard something 3.4 s after a search request in every variant. It now plays at the end of the turn, at 1.9 s (section 3).
 - Final numbers are unchanged: **3.4 s** for chit-chat and **4.8 s** for a search, against 3.3 s / 4.6 s in the table above, measured on a different day.
 
 Reproduce with `python -m scripts.voice_latency latency --trials 4 --silence 1400:4000 1000:2000`. Add `--transcription-mode min_latency` to test that setting. `python -m scripts.voice_latency split` replays the "red umbrellas … also yellow ones" case and prints the full event sequence.

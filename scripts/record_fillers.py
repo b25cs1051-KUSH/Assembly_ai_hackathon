@@ -1,12 +1,13 @@
 """Record the agent's short acknowledgement lines in its own voice.
 
-The page plays one of these the moment the agent calls a tool, so the user hears a reply while the
-model is still working. Each line is spoken by the Voice Agent API itself (same default voice as the
+The page plays one of these as soon as the user's turn ends with a store request (or, failing that, when
+the agent calls a tool), so the user hears a reply while the model is still working. Each line is spoken by the Voice Agent API itself (same default voice as the
 live agent), checked against its transcript, trimmed of silence and saved as raw 24 kHz PCM16 to
 frontend/audio/ack_<tool>_<n>.pcm, with the texts in frontend/audio/acks.json.
 
 Usage (from the repo root, with ASSEMBLYAI_API_KEY in .env):
-    python -m scripts.record_fillers
+    python -m scripts.record_fillers              # every line set
+    python -m scripts.record_fillers action       # only these sets; the others in acks.json are kept
 """
 
 import array
@@ -14,6 +15,7 @@ import asyncio
 import base64
 import json
 import re
+import sys
 from pathlib import Path
 
 import websockets
@@ -26,6 +28,12 @@ LINES = {
         "Sure, let me look.",
         "Let me find the best options for you.",
         "One moment, let me check what we have.",
+    ],
+    # Played at the end of the user's turn for compare, cart, checkout and review requests
+    "action": [
+        "Okay, one moment.",
+        "Got it.",
+        "Sure, one second.",
     ],
 }
 PROMPT = "You read sentences aloud. When asked to say a sentence, say exactly that sentence and nothing else."
@@ -62,9 +70,13 @@ async def say(ws, text: str) -> tuple[bytes, str]:
     raise RuntimeError("socket closed")
 
 
-async def main():
+async def main(only: list[str]):
+    unknown = [t for t in only if t not in LINES]
+    if unknown:
+        raise SystemExit(f"unknown line sets {unknown}; choose from {list(LINES)}")
     OUT_DIR.mkdir(exist_ok=True)
-    manifest = {}
+    manifest_path = OUT_DIR / "acks.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if only and manifest_path.exists() else {}
     async with websockets.connect(f"{WS_URL}?token={await mint_token()}", max_size=None) as ws:
         await ws.send(json.dumps({"type": "session.update", "session": {"system_prompt": PROMPT}}))
         while json.loads(await ws.recv())["type"] != "session.ready":
@@ -77,6 +89,8 @@ async def main():
         mic = asyncio.create_task(keep_mic_open())
 
         for tool, lines in LINES.items():
+            if only and tool not in only:
+                continue
             manifest[tool] = []
             for n, text in enumerate(lines, 1):
                 for attempt in range(3):
@@ -93,8 +107,8 @@ async def main():
                 print(f"{name}: {len(clip) / 2 / RATE:.2f}s  {text!r}")
         mic.cancel()
         await ws.send(json.dumps({"type": "session.end"}))
-    (OUT_DIR / "acks.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(sys.argv[1:]))

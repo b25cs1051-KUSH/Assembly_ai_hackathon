@@ -12,5 +12,19 @@
       "file": "audio/ack_search_products_3.pcm",
       "text": "One moment, let me check what we have."
     }
+  ],
+  "action": [
+    {
+      "file": "audio/ack_action_1.pcm",
+      "text": "Okay, one moment."
+    },
+    {
+      "file": "audio/ack_action_2.pcm",
+      "text": "Got it."
+    },
+    {
+      "file": "audio/ack_action_3.pcm",
+      "text": "Sure, one second."
+    }
   ]
 }

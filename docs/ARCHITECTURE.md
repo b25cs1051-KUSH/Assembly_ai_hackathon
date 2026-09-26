@@ -94,7 +94,7 @@ Reply audio arrives in ~10 ms chunks, in bursts and sometimes slower than real t
 
 ## Acknowledgement clips
 
-A search takes a model decision, the tool and a second model turn, which leaves seconds of silence. On `tool.call` for `search_products` the page plays one of three short clips ("Sure, let me look.") from `frontend/audio/`, at most once per user turn and only when the agent is silent. `scripts/record_fillers.py` records the clips from the Voice Agent API itself, so they use the live agent's voice. They go through the same playback queue, so barge-in pauses and discards them like any other agent audio.
+A search takes a model decision, the tool and a second model turn, which leaves seconds of silence. When the server ends the user's turn (`transcript.user`), `AgentTools.ackFor` picks a clip from the user's words. A search gets "Sure, let me look.". Compare, cart, checkout and review requests get "Okay, one moment.". Chit-chat and the order confirmation get none. If no clip played and the model calls a tool, one plays on `tool.call` instead. Clips live in `frontend/audio/`, play at most once per user turn and only when the agent is silent. `scripts/record_fillers.py` records the clips from the Voice Agent API itself, so they use the live agent's voice. They go through the same playback queue, so barge-in pauses and discards them like any other agent audio.
 
 ## Memory across sessions in a visit
 
