@@ -650,7 +650,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
         { phrase: 'I need a windproof umbrella under 30 dollars', feature: 'Search by voice: filters and grid update, top results get numbers' },
         { phrase: 'Wait, which one is the lightest?', feature: 'Say it while the agent is talking: it stops mid-sentence (barge-in)' },
         { phrase: 'Compare the first two', feature: 'Side-by-side comparison, by position' },
-        { phrase: 'What do people complain about with the first one?', feature: 'Answers from real reviews, never invented' },
+        { phrase: 'What do people complain about with the first one?', feature: "Answers only from the store's review data" },
         { phrase: 'Add it to my cart. Actually, make it two', feature: 'Cart updates by voice' },
         { phrase: 'Check out', feature: 'Says the total and asks you to confirm; then say "Yes, place it"' },
         { phrase: "What's in my cart?", feature: 'Stop the mic, start it again, then ask: it remembers the visit' },
@@ -686,7 +686,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             audioCtx = new AudioContext();
             playCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
             await Promise.all([audioCtx.resume(), playCtx.resume()]);
-            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=10');
+            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=11');
             if (stale()) return;
             playNode = new AudioWorkletNode(playCtx, 'playback-processor', {
                 numberOfInputs: 0,
@@ -700,7 +700,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             });
             if (stale()) { stream.getTracks().forEach(t => t.stop()); return; }
             micStream = stream;
-            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=10');
+            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=11');
             if (stale()) return;
 
             // Tokens are single-use and short-lived: mint right before connecting.

@@ -2182,6 +2182,7 @@ body { line-height: 1.6; background: var(--clr-bg); color: var(--clr-text-primar
     text-align: center;
 }
 .site-footer strong { color: var(--clr-accent-yellow); }
+.site-footer .footer-note { margin-top: 0.35rem; font-size: 0.8rem; opacity: 0.75; }
 
 @media (min-width: 900px) {
     .agent-head { order: -2; }

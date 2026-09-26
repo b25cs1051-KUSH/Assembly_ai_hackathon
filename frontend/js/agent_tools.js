@@ -322,7 +322,7 @@ const AgentTools = (() => {
             pros: p.pros,
             cons: p.cons,
             reviews_summary: p.reviews_summary,
-            // Grounds answers to "what do people complain about?" in real review text
+            // Grounds answers to "what do people complain about?" in review text
             critical_reviews: (p.reviews || []).filter(r => r.rating <= 4).sort((a, b) => a.rating - b.rating)
                 .slice(0, 3).map(r => ({ rating: r.rating, text: r.text })),
             top_reviews: (p.reviews || []).filter(r => r.rating === 5).slice(0, 2).map(r => ({ rating: r.rating, text: r.text })),
