@@ -1,6 +1,9 @@
 /* =================================================================
    VoiceAgent — browser ↔ AssemblyAI Voice Agent API
-   Mic → PCM16 24 kHz → input.audio; reply.audio → Web Audio playback.
+   Mic → PCM16 24 kHz → input.audio; reply.audio → playback worklet
+   (continuous stream with a rebuffering jitter buffer, playback_worklet.js).
+   On tool.call a pre-recorded acknowledgement in the agent's voice plays at
+   once, so the user hears a reply while the model is still working.
    Barge-in ("pause, then let the server decide"): agent audio plays in its
    own AudioContext. When the local detector (or the server) hears the user,
    that context is suspended at once, so the agent stops mid-word and no
@@ -16,15 +19,19 @@ const VoiceAgent = (() => {
     const SAMPLE_RATE = 24000;
     const WS_URL = 'wss://agents.assemblyai.com/v1/ws';
     const END_TIMEOUT_MS = 3000;       // wait this long for session.ended before force-closing
-    const PLAYBACK_LEAD_S = 0.2;       // jitter buffer at the start of a reply and after an underrun
-    const PLAYBACK_LEAD_STEP_S = 0.1;  // each underrun grows the buffer by this much…
-    const PLAYBACK_LEAD_MAX_S = 0.5;   // …up to this, for the rest of the session
+    const START_BUFFER_S = 0.3;        // audio buffered before a reply starts playing
+    const REBUFFER_S = 0.5;            // after running dry mid-reply, buffer this much before continuing
+    const BUFFER_STEP_S = 0.2;         // every underrun adds this to both…
+    const BUFFER_MAX_S = 1.0;          // …up to this, for the rest of the session
+    const ECHO_VAD_STEP = 1.3;         // each echo false-trigger raises the local detector threshold by this factor…
+    const ECHO_VAD_MAX = 0.12;         // …up to this
     const PROBE_MS = 600;              // paused this long: mic still hearing speech → user, went quiet → echo
     const RELEASE_GRACE_MS = 800;      // after the user stops, wait this long for the server before resuming
 
     const params = new URLSearchParams(location.search);
     const DEBUG = params.has('debug');
     const SPEECH_RMS = Number(params.get('vad')) || 0.03;  // local detector level; tune with ?vad=
+    let speechRms = SPEECH_RMS;        // per session; raised automatically when echo trips the detector
     const DEBUG_LINES = 15;
     function log(msg, data) {
         if (!DEBUG) return;
@@ -66,6 +73,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     let ws = null;
     let audioCtx = null;               // mic capture, native sample rate
     let playCtx = null;                // agent audio at 24 kHz; suspended to pause the agent instantly
+    let playNode = null;               // playback worklet in playCtx
     let micStream = null;
     let micSource = null;
     let micNode = null;
@@ -74,13 +82,19 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     // Bumped on every start/stop; async work from an older attempt checks it and bails out.
     let attempt = 0;
 
-    // Agent audio playback
-    const playing = new Set();
-    let nextStartTime = 0;
+    // Agent audio playback, as reported by the playback worklet
+    let agentAudio = false;            // audio queued or playing
+    let agentPlaying = false;          // audible right now (not buffering)
+    let segCounter = 0;                // every reply and acknowledgement clip is its own segment
+    let replySeg = 0;
     // False after the server reports a reply as interrupted, until the next reply starts, so any
     // late chunks of the interrupted reply are dropped.
     let acceptAudio = true;
-    let leadS = PLAYBACK_LEAD_S;
+
+    // Acknowledgement clips per tool ({ text, samples }), loaded from audio/acks.json
+    const acks = {};
+    const ackNext = {};
+    let ackThisTurn = false;           // at most one acknowledgement per user turn
 
     // Barge-in hold: 'none' → 'probing' (paused, deciding user vs echo) → 'user' (paused, waiting for the server)
     let hold = 'none';
@@ -194,10 +208,10 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 turnActive = true;
                 log('server speech.started', {
                     msIntoReply: sinceReply(),
-                    audioQueued: playing.size > 0,
+                    audioQueued: agentAudio,
                     msAfterLocalPause: heldAt ? Math.round(performance.now() - heldAt) : null,
                 });
-                if (playing.size) pause('user');
+                if (agentAudio) pause('user');
                 else if (hold === 'probing') hold = 'user';
                 clearTimeout(probeTimer);
                 clearTimeout(releaseTimer);
@@ -211,6 +225,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             case 'transcript.user.delta':
             case 'transcript.user':
                 heardUser = true;
+                if (evt.type === 'transcript.user') ackThisTurn = false;  // a new user turn
                 if (evt.text) showUser(evt.text);
                 break;
 
@@ -220,7 +235,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 turnActive = true;
                 acceptAudio = true;
                 agentText = '';
-                if (!playing.size) nextStartTime = 0;  // a fresh reply gets the full jitter buffer
+                replySeg = ++segCounter;
                 replyStartedAt = performance.now();
                 droppedChunks = 0;
                 break;
@@ -246,6 +261,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             case 'reply.done':
                 turnActive = false;
                 log('reply.done', { status: evt.status, msIntoReply: sinceReply(), droppedChunks, hold });
+                if (playNode) playNode.port.postMessage({ type: 'end', seg: replySeg });
                 if (evt.status === 'interrupted') {
                     discardHeld('server interrupted the reply');
                     acceptAudio = false;
@@ -257,6 +273,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 break;
 
             case 'tool.call':
+                playAck(evt.name);
                 runTool(evt);
                 break;
 
@@ -306,7 +323,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         // numberOfOutputs: 0 → the node is always processed without being wired to the speakers.
         micNode = new AudioWorkletNode(audioCtx, 'mic-processor', {
             numberOfOutputs: 0,
-            processorOptions: { speechRms: SPEECH_RMS },
+            processorOptions: { speechRms },
         });
         micNode.port.onmessage = e => {
             if (e.data === 'speech') { onLocalSpeech(); return; }
@@ -319,59 +336,77 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     /* ── PLAYBACK ───────────────────────────────────────────────── */
     function playChunk(b64) {
-        if (!playCtx || !b64) return;
+        if (!playNode || !b64) return;
         const bytes = base64ToBytes(b64);
         const pcm = new Int16Array(bytes.buffer, 0, bytes.byteLength >> 1);
         if (!pcm.length) return;
+        const samples = new Float32Array(pcm.length);
+        for (let i = 0; i < pcm.length; i++) samples[i] = pcm[i] / 0x8000;
+        pushAudio(replySeg, samples);
+    }
 
-        const buffer = playCtx.createBuffer(1, pcm.length, SAMPLE_RATE);
-        const channel = buffer.getChannelData(0);
-        for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 0x8000;
+    function pushAudio(seg, samples) {
+        playNode.port.postMessage({ type: 'push', seg, samples }, [samples.buffer]);
+        agentAudio = true;
+    }
 
-        const src = playCtx.createBufferSource();
-        src.buffer = buffer;
-        src.connect(playCtx.destination);
-
-        // While paused, currentTime is frozen, so chunks simply queue up behind the paused point.
-        const now = playCtx.currentTime;
-        if (nextStartTime < now) {
-            if (nextStartTime) {
-                // Ran dry mid-reply: the network is jittery, so keep a bigger buffer from now on.
-                leadS = Math.min(PLAYBACK_LEAD_MAX_S, leadS + PLAYBACK_LEAD_STEP_S);
-                log('underrun', {
-                    gapMs: Math.round((now - nextStartTime) * 1000),
-                    msIntoReply: sinceReply(),
-                    newBufferMs: Math.round(leadS * 1000),
-                });
-            }
-            nextStartTime = now + leadS;
+    function onPlaybackMessage(e) {
+        const m = e.data;
+        if (m.type === 'playing') {
+            agentPlaying = true;
+            if (status === 'listening' && hold === 'none') setStatus('speaking');
+        } else if (m.type === 'idle') {
+            agentPlaying = false;
+            agentAudio = false;
+            if (status === 'speaking') setStatus('listening');
+        } else if (m.type === 'underrun') {
+            log('underrun → rebuffering', { waitMs: m.needMs, msIntoReply: sinceReply() });
         }
-        src.start(nextStartTime);
-        nextStartTime += buffer.duration;
-
-        playing.add(src);
-        src.onended = () => {
-            playing.delete(src);
-            if (!playing.size && status === 'speaking') setStatus('listening');
-        };
-        if (status === 'listening' && hold === 'none') setStatus('speaking');
     }
 
     function stopPlayback() {
-        for (const src of playing) {
-            src.onended = null;
-            try { src.stop(); } catch (_) { /* already stopped */ }
-        }
-        playing.clear();
-        nextStartTime = 0;
+        if (playNode) playNode.port.postMessage({ type: 'clear' });
+        agentAudio = false;
+        agentPlaying = false;
         if (status === 'speaking') setStatus('listening');
+    }
+
+    /* ── ACKNOWLEDGEMENTS ───────────────────────────────────────── */
+    async function loadAcks() {
+        try {
+            const manifest = await (await fetch('audio/acks.json')).json();
+            for (const [tool, lines] of Object.entries(manifest)) {
+                acks[tool] = await Promise.all(lines.map(async ({ file, text }) => {
+                    const pcm = new Int16Array(await (await fetch(file)).arrayBuffer());
+                    const samples = new Float32Array(pcm.length);
+                    for (let i = 0; i < pcm.length; i++) samples[i] = pcm[i] / 0x8000;
+                    return { text, samples };
+                }));
+                ackNext[tool] = 0;
+            }
+        } catch (err) {
+            console.warn('Acknowledgement clips not loaded', err);  // the agent still works without them
+        }
+    }
+
+    /* The model is working on a tool; say something now instead of leaving silence. */
+    function playAck(tool) {
+        const lines = acks[tool];
+        if (!playNode || !lines || !lines.length || ackThisTurn || agentAudio || hold !== 'none') return;
+        const line = lines[ackNext[tool]++ % lines.length];
+        const seg = ++segCounter;
+        pushAudio(seg, line.samples.slice());  // slice: the transfer detaches the buffer
+        playNode.port.postMessage({ type: 'end', seg });
+        ackThisTurn = true;
+        showAgent(line.text);
+        log('acknowledgement', { tool, text: line.text, msIntoReply: sinceReply() });
     }
 
     /* ── BARGE-IN HOLD ──────────────────────────────────────────── */
     function onLocalSpeech() {
         userSpeaking = true;
         clearTimeout(releaseTimer);
-        if (hold !== 'none' || !playing.size) return;
+        if (hold !== 'none' || !agentAudio) return;
         // Pause first, decide later: silence also stops the echo canceller from suppressing the user's voice.
         pause('probing');
         probeTimer = setTimeout(() => {
@@ -388,6 +423,10 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             // The "speech" stopped as soon as the agent went quiet: it was the agent's own echo.
             clearTimeout(probeTimer);
             resume('went quiet while paused → echo');
+            // Echo got through: make the local detector less sensitive for the rest of the session.
+            speechRms = Math.min(ECHO_VAD_MAX, speechRms * ECHO_VAD_STEP);
+            if (micNode) micNode.port.postMessage({ threshold: speechRms });
+            log('raised local detector threshold', { vad: Number(speechRms.toFixed(3)) });
         } else if (hold === 'user') {
             releaseAfterGrace();
         }
@@ -412,12 +451,12 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         log(`resume: ${reason}`, { msPaused: Math.round(performance.now() - heldAt) });
         heldAt = 0;
         if (playCtx) playCtx.resume().catch(() => {});
-        if (playing.size) setStatus('speaking');
+        if (agentPlaying) setStatus('speaking');
     }
 
     function discardHeld(reason) {
-        if (hold === 'none' && !playing.size) return;
-        log(`discard queued audio: ${reason}`, { chunks: playing.size });
+        if (hold === 'none' && !agentAudio) return;
+        log(`discard queued audio: ${reason}`);
         stopPlayback();
         resume(reason);
     }
@@ -452,7 +491,8 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         showUser('');
         showAgent('');
         acceptAudio = true;
-        leadS = PLAYBACK_LEAD_S;
+        speechRms = SPEECH_RMS;
+        ackThisTurn = false;
         try {
             // Created inside the click gesture so they are allowed to run. The mic context uses the native
             // rate (the worklet resamples to 24 kHz; Firefox rejects mic sources at other rates). Agent
@@ -460,6 +500,15 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             audioCtx = new AudioContext();
             playCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
             await Promise.all([audioCtx.resume(), playCtx.resume()]);
+            await playCtx.audioWorklet.addModule('js/playback_worklet.js');
+            if (stale()) return;
+            playNode = new AudioWorkletNode(playCtx, 'playback-processor', {
+                numberOfInputs: 0,
+                outputChannelCount: [1],
+                processorOptions: { startS: START_BUFFER_S, rebufferS: REBUFFER_S, stepS: BUFFER_STEP_S, maxS: BUFFER_MAX_S },
+            });
+            playNode.port.onmessage = onPlaybackMessage;
+            playNode.connect(playCtx.destination);
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: true },
             });
@@ -516,6 +565,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         heldAt = 0;
         userSpeaking = false;
         if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+        if (playNode) { playNode.port.onmessage = null; playNode.disconnect(); playNode = null; }
         if (playCtx) { playCtx.close().catch(() => {}); playCtx = null; }
         sessionReady = false;
         turnActive = false;
@@ -538,6 +588,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             document.body.appendChild(panel);
             log('debug on', { localVad: SPEECH_RMS, turnDetection: TURN_DETECTION });
         }
+        loadAcks();
         $('#hero-voice-btn').addEventListener('click', start);
         window.addEventListener('pagehide', () => {
             if (ws && ws.readyState === WebSocket.OPEN) send({ type: 'session.end' });

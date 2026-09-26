@@ -261,10 +261,13 @@ def analyse_single(run: dict) -> dict:
     tool_call, tool_sent = first("tool.call"), first("tool.result.sent")
     next_reply = next((e["t"] for e in after if e["type"] == "reply.started" and tool_sent and e["t"] > tool_sent), None)
     chunks = [c for r in audio_replies for c in r["chunks"]]
+    # The page plays a recorded acknowledgement on tool.call, so the user hears something from then.
+    first_sound = min(t for t in (tool_call, chunks[0][0] if chunks else None) if t) if (tool_call or chunks) else None
     return {
         "speech_stopped": (first("input.speech.stopped") or speech_end) - speech_end,
         "reply_started": (first("reply.started") or speech_end) - speech_end,
         "first_audio": (chunks[0][0] - speech_end) if chunks else None,
+        "first_sound": (first_sound - speech_end) if first_sound else None,
         "tool_llm": (tool_call - first("reply.started")) if tool_call and first("reply.started") else None,
         "tool_to_reply": (next_reply - tool_sent) if next_reply and tool_sent else None,
         "prebuffer": max((prebuffer_needed(r["chunks"]) for r in audio_replies), default=0.0),
@@ -288,16 +291,16 @@ async def cmd_latency(trials: int, settings: list[tuple[int, int]], lines: list[
                 r = analyse_single(await run_session([(line, 0.0)], ms, bare=bare))
                 rows.append((ms, line, r))
                 print(f"silence={ms[0]}/{ms[1]} {line:8s} #{i + 1}: stopped {fmt(r['speech_stopped'])}  "
-                      f"reply {fmt(r['reply_started'])}  first audio {fmt(r['first_audio'])}  "
+                      f"reply {fmt(r['reply_started'])}  first sound {fmt(r['first_sound'])}  first audio {fmt(r['first_audio'])}  "
                       f"tool→reply {fmt(r['tool_to_reply'])}  prebuffer {fmt(r['prebuffer'])}  "
                       f"chunk {fmt((r['chunk_ms'] or 0) / 1000)}  speed {fmt(r['speed'], 'x')}x  | {r['said'][:70]}",
                       flush=True)
     print("\nMedians (max) in ms, measured from the end of user speech:")
-    print("silence    line      first_audio        reply_started      tool→reply         prebuffer")
+    print("silence    line      first_sound        first_audio        reply_started      tool→reply         prebuffer")
     for ms in settings:
         for line in lines:
             rs = [r for m, l_, r in rows if m == ms and l_ == line]
-            cols = [_stat(rs, k) for k in ("first_audio", "reply_started", "tool_to_reply", "prebuffer")]
+            cols = [_stat(rs, k) for k in ("first_sound", "first_audio", "reply_started", "tool_to_reply", "prebuffer")]
             print(f"{ms[0]:4d}/{ms[1]:<5d} {line:9s} " + "    ".join(cols))
 
 

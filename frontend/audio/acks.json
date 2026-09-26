@@ -1,0 +1,16 @@
+{
+  "search_products": [
+    {
+      "file": "audio/ack_search_products_1.pcm",
+      "text": "Sure, let me look."
+    },
+    {
+      "file": "audio/ack_search_products_2.pcm",
+      "text": "Let me find the best options for you."
+    },
+    {
+      "file": "audio/ack_search_products_3.pcm",
+      "text": "One moment, let me check what we have."
+    }
+  ]
+}

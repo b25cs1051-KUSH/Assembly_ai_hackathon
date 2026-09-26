@@ -1,0 +1,109 @@
+/* =================================================================
+   Playback worklet — plays the agent's audio as one continuous stream
+   (24 kHz context, so no resampling here).
+   Reply audio arrives in ~10 ms chunks, in bursts and sometimes slower
+   than real time. Instead of scheduling a node per chunk (where every
+   late chunk is an audible gap), chunks go into a queue:
+   - playback starts once startS of audio is buffered;
+   - if the queue runs dry mid-reply (underrun), it goes quiet and waits
+     for rebufferS before continuing, so a slow stretch becomes one short
+     pause instead of stutter; every further underrun buffers more;
+   - running dry at the end of a segment (reply or acknowledgement clip)
+     is normal and plays whatever is left without waiting.
+   Messages in:  {type:'push', seg, samples: Float32Array}
+                 {type:'end', seg}   no more audio for this segment
+                 {type:'clear'}      drop everything (barge-in)
+   Messages out: {type:'playing'} {type:'idle'} {type:'underrun', needMs}
+   ================================================================= */
+
+class PlaybackProcessor extends AudioWorkletProcessor {
+    constructor(options) {
+        super();
+        const o = options.processorOptions;
+        this.startS = o.startS;
+        this.rebufferS = o.rebufferS;
+        this.stepS = o.stepS;
+        this.maxS = o.maxS;
+        this.underruns = 0;
+        this.queue = [];          // { seg, samples }
+        this.offset = 0;          // read position in queue[0]
+        this.buffered = 0;        // samples queued
+        this.ended = new Set();   // segments that will get no more audio
+        this.state = 'idle';      // idle | buffering | playing
+        this.need = 0;            // samples to buffer before (re)starting
+        this.lastSeg = null;      // segment of the last sample played
+        this.port.onmessage = e => this.onMessage(e.data);
+    }
+
+    onMessage(m) {
+        if (m.type === 'push') {
+            this.queue.push({ seg: m.seg, samples: m.samples });
+            this.buffered += m.samples.length;
+            if (this.state === 'idle') this.wait(this.startNeedS());
+        } else if (m.type === 'end') {
+            this.ended.add(m.seg);
+        } else if (m.type === 'clear') {
+            this.queue = [];
+            this.offset = 0;
+            this.buffered = 0;
+            this.setIdle();
+        }
+    }
+
+    startNeedS() {
+        // A connection that has already stuttered gets a bigger head start on every reply.
+        return Math.min(this.maxS, this.startS + this.stepS * this.underruns);
+    }
+
+    wait(seconds) {
+        this.state = 'buffering';
+        this.need = Math.round(seconds * sampleRate);
+    }
+
+    setIdle() {
+        if (this.state !== 'idle') this.port.postMessage({ type: 'idle' });
+        this.state = 'idle';
+    }
+
+    process(inputs, outputs) {
+        const out = outputs[0][0];
+        if (this.state === 'buffering') {
+            // Start once enough is buffered, or right away if the queued audio is all there will be.
+            const last = this.queue[this.queue.length - 1];
+            if (this.buffered >= this.need || (last && this.ended.has(last.seg))) {
+                this.state = 'playing';
+                this.port.postMessage({ type: 'playing' });
+            }
+        }
+        if (this.state !== 'playing') { out.fill(0); return true; }
+
+        let i = 0;
+        while (i < out.length && this.queue.length) {
+            const head = this.queue[0];
+            const n = Math.min(out.length - i, head.samples.length - this.offset);
+            out.set(head.samples.subarray(this.offset, this.offset + n), i);
+            i += n;
+            this.offset += n;
+            this.buffered -= n;
+            this.lastSeg = head.seg;
+            if (this.offset === head.samples.length) { this.queue.shift(); this.offset = 0; }
+        }
+        if (i < out.length) {
+            out.fill(0, i);
+            if (this.lastSeg !== null && !this.ended.has(this.lastSeg)) {
+                // Ran dry in the middle of a reply: wait for a real cushion before continuing.
+                this.underruns++;
+                const s = Math.min(this.maxS, this.rebufferS + this.stepS * (this.underruns - 1));
+                this.wait(s);
+                this.port.postMessage({ type: 'underrun', needMs: Math.round(s * 1000) });
+            } else if (this.queue.length) {
+                this.wait(this.startNeedS());  // next segment already queued: normal hand-over
+            } else {
+                this.setIdle();
+            }
+        }
+        return true;
+    }
+}
+
+registerProcessor('playback-processor', PlaybackProcessor);

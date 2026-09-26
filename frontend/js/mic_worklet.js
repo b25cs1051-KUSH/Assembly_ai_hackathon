@@ -22,6 +22,8 @@ class MicProcessor extends AudioWorkletProcessor {
         this.loudS = 0;
         this.quietS = 0;
         this.inSpeech = false;
+        // The page raises the threshold when the agent's own echo keeps tripping the detector.
+        this.port.onmessage = e => { if (e.data && e.data.threshold) this.speechRms = e.data.threshold; };
         this.step = sampleRate / TARGET_RATE;  // input samples per output sample
         this.pos = 0;                          // next output position, relative to the current block
         this.prev = 0;                         // last sample of the previous block (position -1)
