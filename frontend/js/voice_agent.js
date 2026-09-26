@@ -359,7 +359,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             agentAudio = false;
             if (status === 'speaking') setStatus('listening');
         } else if (m.type === 'underrun') {
-            log('underrun: ran out mid-reply, continuing with the next chunk', { msIntoReply: sinceReply() });
+            log('underrun: paused mid-reply to rebuffer', { needMs: m.needMs, msIntoReply: sinceReply() });
         }
     }
 

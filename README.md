@@ -18,11 +18,20 @@ Reply audio arrives as ~10 ms chunks, in bursts, and at times slower than real t
 
 Playback now runs in an `AudioWorklet` (`frontend/js/playback_worklet.js`) with one continuous queue at 24 kHz:
 
-- Each reply starts once **300 ms** is buffered. This is the only wait.
-- After that, chunks play back to back as they arrive. If the queue runs dry mid-reply, playback continues the instant the next chunk arrives, without an extra wait.
-- Each reply and each acknowledgement clip is a separate segment, so a short clip or the last part of a reply plays at once without waiting for 300 ms.
+- Each reply starts once **300 ms** is buffered. While audio keeps up, chunks play back to back with no extra delay.
+- **Rebuffer on underrun.** If a reply is about to run dry mid-reply, playback fades out over about 5 ms, waits until **500 ms** is buffered, and fades back in. Each underrun adds 200 ms to the start and rebuffer waits, up to 1 s, for the rest of the session.
+- Each reply and each acknowledgement clip is a separate segment, so a short clip or the last part of a reply plays at once.
 
-A single queue removes the per-node scheduling gaps. The limit is the source: when AssemblyAI delivers a reply slower than real time, the 300 ms head start runs out and short gaps follow. The debug log counts them as `underrun`. We tried waiting for a bigger cushion after an underrun, which turns many short gaps into one longer pause, but chose not to keep it.
+A single queue removes the per-node scheduling gaps, but it can't make a slow source fast. We tried playing each chunk the instant it arrived after an underrun. On a slow reply the queue then alternates between one chunk and silence, which is stutter.
+
+To compare playback versions, `python -m scripts.voice_latency capture` saves real replies with their chunk arrival times. `node scripts/replay_playback.js` then plays them through any version of the worklet offline. It prints the gaps and writes WAVs to listen to. Results on 12 captured replies (2.8–6.4 s each), delivered at 0.8× real time:
+
+| Playback | Gaps per reply | Clicks |
+|---|---|---|
+| Play each chunk the instant it arrives | 17–52 | yes |
+| Rebuffer with fades (current) | 2–3 | none |
+
+At 1.0× delivery the current version has no gaps. On 26 Sep 2026 we measured AssemblyAI delivering at only 0.2–0.7× for every voice, with or without our prompt and tools. At that speed some pauses are unavoidable without a multi-second start delay.
 
 ### 2. Instant barge-in: pause, then let the server decide
 AssemblyAI decides when the user has started speaking (`input.speech.started`) and whether the current reply is interrupted (`reply.done` with `status: "interrupted"`). Our measurements show that while the agent is talking, that decision can arrive more than a second after the user starts, sometimes only as they finish. While the agent plays, the browser's echo canceller also turns down the user's voice (double-talk suppression). So we handle the first moments locally and leave the final decision to the server:
