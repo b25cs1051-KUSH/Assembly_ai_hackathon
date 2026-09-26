@@ -164,18 +164,36 @@ const UI = (() => {
             </th>
         `).join('');
 
-        const rows = data.matrix.map(row => `
+        // Rows where one value is clearly better get it highlighted: lowest price and weight, highest rest
+        const BETTER = { 'Price': 'low', 'Weight': 'low', 'Rating': 'high', 'Wind Resistance': 'high', 'Canopy Size': 'high' };
+        const bestIndexes = row => {
+            const dir = BETTER[row.field];
+            if (!dir || row.values.length < 2) return [];
+            // First number in the cell: "4.7 ⭐ (12 reviews)" → 4.7, "$29.99" → 29.99
+            const nums = row.values.map(v => parseFloat((String(v).match(/\d+(?:\.\d+)?/) || [])[0]));
+            if (nums.some(Number.isNaN)) return [];
+            const best = dir === 'low' ? Math.min(...nums) : Math.max(...nums);
+            if (nums.every(n => n === best)) return [];  // a tie across the board is no one's win
+            return nums.flatMap((n, i) => (n === best ? [i] : []));
+        };
+
+        const rows = data.matrix.map(row => {
+            const best = bestIndexes(row);
+            return `
             <tr>
                 <td class="field-label">${row.field}</td>
-                ${row.values.map(v => `<td>${v}</td>`).join('')}
-            </tr>
-        `).join('');
+                ${row.values.map((v, i) => (best.includes(i)
+                    ? `<td class="compare-best"><span class="best-tag">Best</span> ${v}</td>`
+                    : `<td>${v}</td>`)).join('')}
+            </tr>`;
+        }).join('');
 
         body.innerHTML = `
             <table class="compare-table">
                 <thead><tr><th></th>${headerCells}</tr></thead>
                 <tbody>${rows}</tbody>
             </table>
+            <p class="compare-legend"><span class="best-tag">Best</span> lowest price and weight, highest rating, wind rating and canopy size</p>
         `;
     }
 

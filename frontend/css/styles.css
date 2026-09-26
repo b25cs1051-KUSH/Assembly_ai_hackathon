@@ -2273,3 +2273,78 @@ body { line-height: 1.6; background: var(--clr-bg); color: var(--clr-text-primar
     .filters-bar:not(.expanded) .filters-inner { display: none; }
     .filters-bar.expanded .filters-inner { margin-top: 0.75rem; }
 }
+
+/* =================================================================
+   21. FOCUS PASS: one job per colour, voice first
+   yellow = the main action, pink = the voice agent, black = structure.
+   Product photos bring their own colour, so everything around them is neutral.
+   ================================================================= */
+
+/* Plain white photo wells instead of cycling pastels */
+.card-image-wrap,
+.product-card:nth-child(4n + 2) .card-image-wrap,
+.product-card:nth-child(4n + 3) .card-image-wrap,
+.product-card:nth-child(4n + 4) .card-image-wrap { background: #fff; }
+.card-image-wrap img { box-shadow: none; border-color: transparent; }
+.product-card:hover .card-image-wrap img { transform: scale(1.03); }
+
+/* Brand is a neutral label; pink stays reserved for the agent (numbers, focus, mic) */
+.card-brand-badge {
+    color: var(--clr-text-primary);
+    background: var(--clr-bg-card);
+    transform: none;
+}
+
+/* Add to Cart is secondary: fifteen yellow buttons drowned out the voice button */
+.btn-add-cart { background: var(--clr-bg-card); color: var(--clr-text-primary); }
+.btn-add-cart:hover { background: var(--clr-accent-yellow); }
+
+/* The mic is the product: bigger, pink, with a pink ring while it listens */
+.voice-btn { width: 64px; height: 64px; background: var(--clr-accent-pink-text-bg); color: #fff; }
+.voice-btn svg { width: 30px; height: 30px; }
+.voice-btn:hover { background: var(--clr-accent-pink-text-bg); }
+.voice-dock[data-status="listening"] .voice-btn { animation: mic-pulse 1.4s ease-out infinite; }
+.voice-dock[data-status="speaking"] .voice-btn { background: var(--clr-accent-yellow); color: var(--clr-text-primary); }
+.voice-status { font-size: 1rem; color: var(--clr-text-primary); }
+@keyframes mic-pulse {
+    0%   { box-shadow: 3px 3px 0 0 #0f172a, 0 0 0 0 rgba(219, 39, 119, 0.6); }
+    100% { box-shadow: 3px 3px 0 0 #0f172a, 0 0 0 14px rgba(219, 39, 119, 0); }
+}
+
+/* Static feature strip: motion competed with the agent while demoing */
+.marquee-track {
+    animation: none;
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 0.25rem;
+}
+.marquee-track span:nth-child(n + 17) { display: none; }  /* the list is doubled for the old loop */
+.marquee-track span:nth-last-child(17) { display: none; } /* no dot after the last item */
+
+/* Compare: the best value in each row is marked, so the table argues for the shopper */
+.compare-table td.compare-best { background: #dcfce7; font-weight: 700; }
+.best-tag {
+    display: inline-block;
+    margin-right: 0.35rem;
+    padding: 1px 8px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--clr-text-primary);
+    background: #86efac;
+    border: var(--border-dark-sm);
+    border-radius: var(--radius-pill);
+    vertical-align: middle;
+}
+.compare-legend { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--clr-text-secondary); }
+
+@media (max-width: 600px) {
+    .marquee { display: none; }
+    .voice-btn { width: 56px; height: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .voice-dock[data-status="listening"] .voice-btn { animation: none; box-shadow: 3px 3px 0 0 #0f172a, 0 0 0 4px rgba(219, 39, 119, 0.4); }
+}
