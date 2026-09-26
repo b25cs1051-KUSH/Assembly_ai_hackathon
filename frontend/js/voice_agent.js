@@ -49,8 +49,9 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     const GREETING = "Hi, I'm your VoiceCart shopping assistant. What kind of umbrella are you looking for today?";
 
-    // Starting point from the docs; tune by ear.
-    const TURN_DETECTION = { vad_threshold: 0.5, min_silence: 1400, max_silence: 4000, interrupt_response: true };
+    // Measured with scripts/voice_latency.py: max_silence 4000 → 2000 cuts time to first audio by ~2.5 s;
+    // lower values make reply audio arrive with multi-second gaps.
+    const TURN_DETECTION = { vad_threshold: 0.5, min_silence: 1000, max_silence: 2000, interrupt_response: true };
     if (params.has('svad')) TURN_DETECTION.vad_threshold = Number(params.get('svad'));
     // Server-side barge-in delay (0–1000 ms); only sent when set with ?idelay= while tuning.
     if (params.has('idelay')) TURN_DETECTION.interruption_delay = Number(params.get('idelay'));
