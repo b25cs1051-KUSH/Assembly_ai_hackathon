@@ -1,7 +1,7 @@
 /* =================================================================
    VoiceAgent — browser ↔ AssemblyAI Voice Agent API
    Mic → PCM16 24 kHz → input.audio; reply.audio → playback worklet
-   (continuous stream with a rebuffering jitter buffer, playback_worklet.js).
+   (continuous stream, 300 ms head start per reply, playback_worklet.js).
    On tool.call a pre-recorded acknowledgement in the agent's voice plays at
    once, so the user hears a reply while the model is still working.
    Barge-in ("pause, then let the server decide"): agent audio plays in its
@@ -19,10 +19,7 @@ const VoiceAgent = (() => {
     const SAMPLE_RATE = 24000;
     const WS_URL = 'wss://agents.assemblyai.com/v1/ws';
     const END_TIMEOUT_MS = 3000;       // wait this long for session.ended before force-closing
-    const START_BUFFER_S = 0.3;        // audio buffered before a reply starts playing
-    const REBUFFER_S = 0.5;            // after running dry mid-reply, buffer this much before continuing
-    const BUFFER_STEP_S = 0.2;         // every underrun adds this to both…
-    const BUFFER_MAX_S = 1.0;          // …up to this, for the rest of the session
+    const START_BUFFER_S = 0.3;        // audio buffered before a reply starts; later chunks play without waiting
     const ECHO_VAD_STEP = 1.3;         // each echo false-trigger raises the local detector threshold by this factor…
     const ECHO_VAD_MAX = 0.12;         // …up to this
     const PROBE_MS = 600;              // paused this long: mic still hearing speech → user, went quiet → echo
@@ -360,7 +357,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             agentAudio = false;
             if (status === 'speaking') setStatus('listening');
         } else if (m.type === 'underrun') {
-            log('underrun → rebuffering', { waitMs: m.needMs, msIntoReply: sinceReply() });
+            log('underrun: ran out mid-reply, continuing with the next chunk', { msIntoReply: sinceReply() });
         }
     }
 
@@ -505,7 +502,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             playNode = new AudioWorkletNode(playCtx, 'playback-processor', {
                 numberOfInputs: 0,
                 outputChannelCount: [1],
-                processorOptions: { startS: START_BUFFER_S, rebufferS: REBUFFER_S, stepS: BUFFER_STEP_S, maxS: BUFFER_MAX_S },
+                processorOptions: { startS: START_BUFFER_S },
             });
             playNode.port.onmessage = onPlaybackMessage;
             playNode.connect(playCtx.destination);

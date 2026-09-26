@@ -13,15 +13,16 @@ VoiceCart AI provides a real-time, voice-native shopping experience. By embeddin
 
 The browser talks to AssemblyAI's Voice Agent API directly over a WebSocket. Our server only mints a single-use token, so the API key never reaches the browser. Mic audio goes up as 24 kHz PCM16, and the agent's reply comes back as 24 kHz PCM16 chunks that we schedule with the Web Audio API. Getting this to feel like a real conversation took the work below.
 
-### 1. Smooth playback: a rebuffering playback worklet
+### 1. Smooth playback: a continuous playback worklet
 Reply audio arrives as ~10 ms chunks, in bursts, and at times slower than real time (we measured 0.8×). Our first version scheduled one Web Audio source node per chunk, about 100 a second. Every late chunk left the schedule empty for a moment, so one slow stretch turned into many micro-gaps, which is stutter.
 
-Playback now runs in an `AudioWorklet` (`frontend/js/playback_worklet.js`) with one continuous queue at 24 kHz. It uses the same strategy as a video player:
+Playback now runs in an `AudioWorklet` (`frontend/js/playback_worklet.js`) with one continuous queue at 24 kHz:
 
-- A reply starts once **300 ms** is buffered.
-- If the queue runs dry mid-reply, the agent goes quiet and waits for **500 ms** of audio before continuing. A slow stretch becomes one short pause instead of stutter. In a test with bursty delivery at 0.8× speed, 8 s of speech had 2 pauses where the old player had a gap every 250 ms.
-- Every further underrun adds 200 ms to both thresholds, up to 1 s, for the rest of the session. A steady connection keeps the short delay, and a jittery one trades a little latency for smooth speech.
-- Each reply and each acknowledgement clip is a separate segment. Running dry at the end of a segment is normal and never counts as an underrun, so short replies and hand-overs play without delay.
+- Each reply starts once **300 ms** is buffered. This is the only wait.
+- After that, chunks play back to back as they arrive. If the queue runs dry mid-reply, playback continues the instant the next chunk arrives, without an extra wait.
+- Each reply and each acknowledgement clip is a separate segment, so a short clip or the last part of a reply plays at once without waiting for 300 ms.
+
+A single queue removes the per-node scheduling gaps. The limit is the source: when AssemblyAI delivers a reply slower than real time, the 300 ms head start runs out and short gaps follow. The debug log counts them as `underrun`. We tried waiting for a bigger cushion after an underrun, which turns many short gaps into one longer pause, but chose not to keep it.
 
 ### 2. Instant barge-in: pause, then let the server decide
 AssemblyAI decides when the user has started speaking (`input.speech.started`) and whether the current reply is interrupted (`reply.done` with `status: "interrupted"`). Our measurements show that while the agent is talking, that decision can arrive more than a second after the user starts, sometimes only as they finish. While the agent plays, the browser's echo canceller also turns down the user's voice (double-talk suppression). So we handle the first moments locally and leave the final decision to the server:
@@ -65,7 +66,7 @@ Tools run in the browser and update the page, for example filtering the product 
 - `max_silence` dominates. The server holds its answer until it's sure the user has finished, so 4000 → 2000 saves about 2.5 s on conversational replies.
 - Going lower barely speeds up the first word, but the reply audio then arrives with multi-second gaps, which our buffer can't hide. 1000 / 2000 is the lowest setting that stays smooth.
 - A product search costs a tool round trip: the model decides to call the tool (~1 s), our tool answers in ~0.2 s, and the model speaks the result. Asking the agent to say "let me look" first didn't make audio arrive sooner, so the page plays a recorded acknowledgement on `tool.call` instead (section 3).
-- The pre-buffer column shows how uneven delivery is: usually under 0.5 s, but some replies stall for several seconds mid-stream. No fixed buffer hides that without making every reply slow, which is why the player rebuffers on demand (section 1).
+- The pre-buffer column shows how uneven delivery is: usually under 0.5 s, but some replies stall for several seconds mid-stream. No fixed buffer hides that without making every reply slow (section 1).
 
 Reproduce with `python -m scripts.voice_latency latency --trials 4 --silence 1400:4000 1000:2000`. `python -m scripts.voice_latency split` replays the "red umbrellas … also yellow ones" case and prints the full event sequence.
 
@@ -74,7 +75,7 @@ Add these to the URL to tune the pipeline without redeploying:
 
 | Parameter | Effect |
 |---|---|
-| `?debug=1` | Shows an on-screen log (top left) and writes `[voice]` lines to the console: underruns and rebuffer waits, acknowledgements, local pauses and echo checks, server speech events with the delay after the local pause, discarded audio, and reply status. |
+| `?debug=1` | Shows an on-screen log (top left) and writes `[voice]` lines to the console: underruns, acknowledgements, local pauses and echo checks, server speech events with the delay after the local pause, discarded audio, and reply status. |
 | `&vad=0.03` | Local detector threshold (mic RMS, 0–1). Raise it if the agent's own voice causes pauses, and lower it if your voice doesn't. |
 | `&svad=0.5` | Overrides AssemblyAI's `vad_threshold` (0–1). |
 | `&idelay=0` | Sends `interruption_delay` (0–1000 ms) to AssemblyAI's turn detection. |

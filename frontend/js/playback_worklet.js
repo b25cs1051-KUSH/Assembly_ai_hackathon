@@ -4,16 +4,15 @@
    Reply audio arrives in ~10 ms chunks, in bursts and sometimes slower
    than real time. Instead of scheduling a node per chunk (where every
    late chunk is an audible gap), chunks go into a queue:
-   - playback starts once startS of audio is buffered;
-   - if the queue runs dry mid-reply (underrun), it goes quiet and waits
-     for rebufferS before continuing, so a slow stretch becomes one short
-     pause instead of stutter; every further underrun buffers more;
-   - running dry at the end of a segment (reply or acknowledgement clip)
-     is normal and plays whatever is left without waiting.
+   - a segment (reply or acknowledgement clip) starts playing once startS
+     of audio is buffered, or at once if it is complete and shorter;
+   - after that, chunks play back to back with no further waiting; if the
+     queue runs dry mid-reply (underrun), playback continues the instant
+     the next chunk arrives.
    Messages in:  {type:'push', seg, samples: Float32Array}
                  {type:'end', seg}   no more audio for this segment
                  {type:'clear'}      drop everything (barge-in)
-   Messages out: {type:'playing'} {type:'idle'} {type:'underrun', needMs}
+   Messages out: {type:'playing'} {type:'idle'} {type:'underrun'}
    ================================================================= */
 
 class PlaybackProcessor extends AudioWorkletProcessor {
@@ -21,16 +20,13 @@ class PlaybackProcessor extends AudioWorkletProcessor {
         super();
         const o = options.processorOptions;
         this.startS = o.startS;
-        this.rebufferS = o.rebufferS;
-        this.stepS = o.stepS;
-        this.maxS = o.maxS;
-        this.underruns = 0;
+        this.dry = false;         // ran out mid-reply and waiting for the next chunk
         this.queue = [];          // { seg, samples }
         this.offset = 0;          // read position in queue[0]
         this.buffered = 0;        // samples queued
         this.ended = new Set();   // segments that will get no more audio
         this.state = 'idle';      // idle | buffering | playing
-        this.need = 0;            // samples to buffer before (re)starting
+        this.need = 0;            // samples to buffer before a segment starts
         this.lastSeg = null;      // segment of the last sample played
         this.port.onmessage = e => this.onMessage(e.data);
     }
@@ -39,20 +35,16 @@ class PlaybackProcessor extends AudioWorkletProcessor {
         if (m.type === 'push') {
             this.queue.push({ seg: m.seg, samples: m.samples });
             this.buffered += m.samples.length;
-            if (this.state === 'idle') this.wait(this.startNeedS());
+            if (this.state === 'idle') this.wait(this.startS);
         } else if (m.type === 'end') {
             this.ended.add(m.seg);
         } else if (m.type === 'clear') {
             this.queue = [];
             this.offset = 0;
             this.buffered = 0;
+            this.dry = false;
             this.setIdle();
         }
-    }
-
-    startNeedS() {
-        // A connection that has already stuttered gets a bigger head start on every reply.
-        return Math.min(this.maxS, this.startS + this.stepS * this.underruns);
     }
 
     wait(seconds) {
@@ -86,18 +78,18 @@ class PlaybackProcessor extends AudioWorkletProcessor {
             this.offset += n;
             this.buffered -= n;
             this.lastSeg = head.seg;
+            this.dry = false;
             if (this.offset === head.samples.length) { this.queue.shift(); this.offset = 0; }
         }
         if (i < out.length) {
             out.fill(0, i);
             if (this.lastSeg !== null && !this.ended.has(this.lastSeg)) {
-                // Ran dry in the middle of a reply: wait for a real cushion before continuing.
-                this.underruns++;
-                const s = Math.min(this.maxS, this.rebufferS + this.stepS * (this.underruns - 1));
-                this.wait(s);
-                this.port.postMessage({ type: 'underrun', needMs: Math.round(s * 1000) });
+                // Ran dry in the middle of a reply: keep playing silence and continue the instant
+                // the next chunk arrives. Reported once per dry spell.
+                if (!this.dry) this.port.postMessage({ type: 'underrun' });
+                this.dry = true;
             } else if (this.queue.length) {
-                this.wait(this.startNeedS());  // next segment already queued: normal hand-over
+                this.wait(this.startS);  // next segment already queued: normal hand-over
             } else {
                 this.setIdle();
             }
