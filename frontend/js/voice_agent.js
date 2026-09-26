@@ -54,7 +54,7 @@ Every position from 1 to total_matches is valid, even the ones not listed in the
 When the user asks for more about a product or what people say, call show_product. When they want to compare or choose, call compare_products with two or three positions.
 Each umbrella lists its color, and other_colors if it comes in more than one. When the user asks to see an umbrella in a different color, call show_product with that umbrella's position or id and the color. To buy it in a color, pass the color to update_cart or checkout. For "a red umbrella" in general, call search_products with color. If a tool says the color does not exist, tell the user which colors it comes in.
 To take an umbrella out of the comparison, add one to it, or close it, call update_compare. In the comparison, "the second one" means the second column, so pass columns for removals.
-Use update_cart to add, remove or change quantities. When the user wants to pay, call checkout, say what is in the order and the total, and ask them to confirm. If they ask to check out or buy a specific umbrella, pass it to checkout, which adds it to the cart and opens checkout in one step. Only call place_order with user_confirmed true after they clearly say yes. If they say no, do not place it.
+Use update_cart to add, remove or change quantities. When the user asks to see their cart or what is in it, call show_cart. When the user wants to pay, call checkout, say what is in the order and the total, and ask them to confirm. If they ask to check out or buy a specific umbrella, pass it to checkout, which adds it to the cart and opens checkout in one step. Only call place_order with user_confirmed true after they clearly say yes. If they say no, do not place it.
 If nothing matches, say so and offer to relax one requirement, such as the price.
 The page already plays a short acknowledgement such as "Sure, let me look" when the user asks for something, so start your answer with the answer itself, not with "sure", "okay" or "let me look".
 You remember this whole visit. If you are given the earlier conversation and what is on screen, continue from there and never start over.`;
@@ -690,7 +690,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             audioCtx = new AudioContext();
             playCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
             await Promise.all([audioCtx.resume(), playCtx.resume()]);
-            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=16');
+            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=17');
             if (stale()) return;
             playNode = new AudioWorkletNode(playCtx, 'playback-processor', {
                 numberOfInputs: 0,
@@ -704,7 +704,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             });
             if (stale()) { stream.getTracks().forEach(t => t.stop()); return; }
             micStream = stream;
-            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=16');
+            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=17');
             if (stale()) return;
 
             // Tokens are single-use and short-lived: mint right before connecting.

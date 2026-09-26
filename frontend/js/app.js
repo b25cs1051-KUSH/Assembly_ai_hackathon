@@ -403,6 +403,7 @@ const App = (() => {
         closeAllPanels,
         openCheckout,
         isCheckoutOpen,
+        openCart,
         placeOrder,
         getOpenView,
     };

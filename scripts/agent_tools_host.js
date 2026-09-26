@@ -58,6 +58,7 @@ const App = {
     removeFromCart(id) { cart = cart.filter(i => i.id !== id); },
     updateQty(id, qty) { const i = cart.find(x => x.id === id); if (i) i.qty = qty; },
     openCheckout() { checkoutOpen = true; },
+    openCart() {},
     isCheckoutOpen: () => checkoutOpen,
     placeOrder() { cart = []; return 'VC-TEST'; },
     getCartSummary() {

@@ -23,6 +23,7 @@ let compareIds = [];
 let compareOpen = false;
 let cart = [];              // { id, qty }
 let checkoutOpen = false;
+let cartOpen = false;
 const App = {
     getProducts: () => products,
     getVisible: () => filtered,
@@ -52,6 +53,7 @@ const App = {
     removeFromCart(id) { cart = cart.filter(i => i.id !== id); },
     updateQty(id, qty) { const item = cart.find(i => i.id === id); if (item) item.qty = qty; },
     openCheckout() { checkoutOpen = true; },
+    openCart() { cartOpen = true; },
     isCheckoutOpen: () => checkoutOpen,
     placeOrder() { cart = []; checkoutOpen = false; return 'VC-TEST'; },
     getCartSummary() {
@@ -175,7 +177,13 @@ async function error(p) { try { await p; return null; } catch (e) { return e.mes
     const setQty = await run('update_cart', { action: 'set_quantity', position: 2, quantity: 2 });
     check('set_quantity on a product not in the cart adds that many', setQty.items.length === 1 && setQty.items[0].quantity === 2,
         `got ${JSON.stringify(setQty.items)}`);
+    const shown = await run('show_cart', {});
+    check('show_cart opens the cart and lists what is in it', cartOpen && shown.items.length === 1 && shown.items[0].quantity === 2 && !shown.note,
+        `got ${JSON.stringify(shown)}, open ${cartOpen}`);
     cart = [];
+    const emptyCart = await run('show_cart', {});
+    check('show_cart on an empty cart still opens it and says it is empty', cartOpen && emptyCart.items.length === 0 && /empty/.test(emptyCart.note),
+        `got ${JSON.stringify(emptyCart)}`);
 
     // Colors: each of the 15 umbrellas comes in one color, so asking for another gives a specific error
     const tumella = products.find(p => p.model === 'TUMELLA Windproof Travel Umbrella');

@@ -37,6 +37,7 @@ const AgentTools = (() => {
         compare_products: 'Comparing umbrellas',
         update_compare: 'Updating the comparison',
         update_cart: 'Updating your cart',
+        show_cart: 'Opening your cart',
         checkout: 'Preparing checkout',
         place_order: 'Placing your order',
     };
@@ -173,6 +174,12 @@ const AgentTools = (() => {
                     },
                     required: ['action'],
                 },
+            },
+            {
+                type: 'function',
+                name: 'show_cart',
+                description: 'Open the cart on screen and get its items and total; use it when the user asks to see their cart or what is in it.',
+                parameters: { type: 'object', properties: {} },
             },
             {
                 type: 'function',
@@ -567,6 +574,14 @@ const AgentTools = (() => {
                 throw new Error(`Unknown action "${args.action}". Use add, remove or set_quantity.`);
             }
             return cartResult();
+        },
+
+        show_cart() {
+            App.closeAllPanels();  // the cart opens on its own, not on top of a detail page or comparison
+            App.openCart();
+            const result = cartResult();
+            if (!result.items.length) result.note = 'The cart is empty. Tell the user and offer to help them find an umbrella.';
+            return result;
         },
 
         checkout(args) {
