@@ -13,6 +13,8 @@ the page does, and reports:
 Usage (from the repo root, with ASSEMBLYAI_API_KEY in .env):
     python -m scripts.voice_latency latency --trials 5 --silence 1400:4000 800:1500
     python -m scripts.voice_latency split --silence 1400:4000
+    python -m scripts.voice_latency capture --trials 3 --silence 1400:4000 1000:2000 --lines chitchat search
+        (saves reply audio + arrival times to scripts/traces/ for scripts/replay_playback.js)
 """
 
 import argparse
@@ -33,6 +35,7 @@ from backend import config
 
 ROOT = Path(__file__).resolve().parent.parent
 AUDIO_DIR = Path(__file__).resolve().parent / "audio"
+TRACES_DIR = Path(__file__).resolve().parent / "traces"
 WS_URL = "wss://agents.assemblyai.com/v1/ws"
 TOKEN_URL = "https://agents.assemblyai.com/v1/token"
 RATE = 24000
@@ -138,7 +141,7 @@ async def mint_token() -> str:
 
 
 async def run_session(clips: list[tuple[str, float]], silence: tuple[int, int], tail_s: float = 15.0,
-                      bare: bool = False) -> dict:
+                      bare: bool = False, voice: str | None = None) -> dict:
     """Streams each clip followed by its gap of silence. Returns the event log (times in s from session start)."""
     t0 = time.perf_counter()
     now = lambda: time.perf_counter() - t0
@@ -154,6 +157,7 @@ async def run_session(clips: list[tuple[str, float]], silence: tuple[int, int], 
             "input": {"keyterms": ["VoiceCart", *BRANDS], "turn_detection": {
                 "vad_threshold": 0.5, "min_silence": silence[0], "max_silence": silence[1],
                 "interrupt_response": True}},
+            **({"output": {"voice": voice}} if voice else {}),
         }}))
 
         async def flush():
@@ -168,7 +172,8 @@ async def run_session(clips: list[tuple[str, float]], silence: tuple[int, int], 
                 e = json.loads(raw)
                 rec = {"t": now(), "type": e["type"]}
                 if e["type"] == "reply.audio":
-                    rec["dur"] = len(base64.b64decode(e["data"])) / 2 / RATE
+                    rec["_pcm"] = base64.b64decode(e["data"])  # kept for `capture`; "_" keys are never printed
+                    rec["dur"] = len(rec["_pcm"]) / 2 / RATE
                 for k in ("reply_id", "status", "name", "arguments", "text", "code", "message", "interrupted"):
                     if k in e:
                         rec[k] = e[k]
@@ -236,6 +241,7 @@ def replies(events: list[dict]) -> list[dict]:
             out.append(cur)
         elif e["type"] == "reply.audio" and cur is not None:
             cur["chunks"].append((e["t"], e["dur"]))
+            cur.setdefault("pcm", []).append(e["_pcm"])
         elif e["type"] == "transcript.agent" and cur is not None:
             cur["text"] = e.get("text", "")
         elif e["type"] == "reply.done" and cur is not None:
@@ -283,14 +289,15 @@ def fmt(v, unit="ms"):
     return f"{v * 1000:6.0f}" if unit == "ms" else f"{v:6.1f}"
 
 
-async def cmd_latency(trials: int, settings: list[tuple[int, int]], lines: list[str], bare: bool):
+async def cmd_latency(trials: int, settings: list[tuple[int, int]], lines: list[str], bare: bool,
+                      voice: str | None = None):
     rows = []
     for ms in settings:
         for line in lines:
             for i in range(trials):
-                r = analyse_single(await run_session([(line, 0.0)], ms, bare=bare))
+                r = analyse_single(await run_session([(line, 0.0)], ms, bare=bare, voice=voice))
                 rows.append((ms, line, r))
-                print(f"silence={ms[0]}/{ms[1]} {line:8s} #{i + 1}: stopped {fmt(r['speech_stopped'])}  "
+                print(f"voice={voice or 'default'} silence={ms[0]}/{ms[1]} {line:8s} #{i + 1}: stopped {fmt(r['speech_stopped'])}  "
                       f"reply {fmt(r['reply_started'])}  first sound {fmt(r['first_sound'])}  first audio {fmt(r['first_audio'])}  "
                       f"tool→reply {fmt(r['tool_to_reply'])}  prebuffer {fmt(r['prebuffer'])}  "
                       f"chunk {fmt((r['chunk_ms'] or 0) / 1000)}  speed {fmt(r['speed'], 'x')}x  | {r['said'][:70]}",
@@ -322,7 +329,7 @@ async def cmd_split(silence: tuple[int, int], gap: float):
         if audio_run:
             print(f"{audio_run[0]:7.2f}s   reply.audio ×{audio_run[2]} (until {audio_run[1]:.2f}s)")
             audio_run = None
-        extra = {k: v for k, v in e.items() if k not in ("t", "type")}
+        extra = {k: v for k, v in e.items() if k not in ("t", "type") and not k.startswith("_")}
         print(f"{e['t']:7.2f}s   {e['type']:22s} {json.dumps(extra)[:110] if extra else ''}")
     if audio_run:
         print(f"{audio_run[0]:7.2f}s   reply.audio ×{audio_run[2]} (until {audio_run[1]:.2f}s)")
@@ -332,21 +339,44 @@ async def cmd_split(silence: tuple[int, int], gap: float):
               f"{len(r['chunks'])} audio chunks, said: {r['text'][:90]}")
 
 
+async def cmd_capture(trials: int, settings: list[tuple[int, int]], lines: list[str]):
+    """Saves each reply's audio and chunk arrival times, for replaying through the playback worklet offline."""
+    for ms in settings:
+        out = TRACES_DIR / f"{ms[0]}-{ms[1]}"
+        out.mkdir(parents=True, exist_ok=True)
+        for line in lines:
+            for i in range(trials):
+                run = await run_session([(line, 0.0)], ms)
+                for j, r in enumerate(r for r in replies(run["events"]) if r["chunks"]):
+                    name = f"{line}-{i + 1}-{j + 1}"
+                    (out / f"{name}.pcm").write_bytes(b"".join(r["pcm"]))
+                    t0 = r["chunks"][0][0]
+                    (out / f"{name}.json").write_text(json.dumps({
+                        "status": r["status"], "text": r["text"],
+                        "chunks": [[round(t - t0, 4), round(d * RATE)] for t, d in r["chunks"]],
+                    }))
+                    print(f"{out.name}/{name}: {len(r['chunks'])} chunks, "
+                          f"prebuffer {fmt(prebuffer_needed(r['chunks']))} ms | {r['text'][:70]}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mode", choices=["latency", "split"])
+    ap.add_argument("mode", choices=["latency", "split", "capture"])
     ap.add_argument("--trials", type=int, default=5)
     ap.add_argument("--silence", nargs="+", default=["1400:4000"],
                     help="turn_detection min_silence:max_silence pairs in ms")
     ap.add_argument("--lines", nargs="+", default=["chitchat", "search"])
     ap.add_argument("--bare", action="store_true", help="one-line prompt, no tools")
+    ap.add_argument("--voice", help="output.voice, e.g. anna, alba, michael (default: the API's default)")
     ap.add_argument("--gap", type=float, default=1.8, help="split mode: silence between the two clips (s)")
     a = ap.parse_args()
     if not config.ASSEMBLYAI_API_KEY:
         raise SystemExit("ASSEMBLYAI_API_KEY is not set (.env)")
     settings = [tuple(int(x) for x in pair.split(":")) for pair in a.silence]
     if a.mode == "latency":
-        asyncio.run(cmd_latency(a.trials, settings, a.lines, a.bare))
+        asyncio.run(cmd_latency(a.trials, settings, a.lines, a.bare, a.voice))
+    elif a.mode == "capture":
+        asyncio.run(cmd_capture(a.trials, settings, a.lines))
     else:
         for pair in settings:
             print(f"=== silence={pair[0]}/{pair[1]}")

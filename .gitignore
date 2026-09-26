@@ -10,3 +10,5 @@ env/
 .DS_Store
 *.log
 .ruff_cache/
+# Captured reply audio for offline playback replay
+scripts/traces/
