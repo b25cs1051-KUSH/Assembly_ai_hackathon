@@ -8,15 +8,23 @@
 const AgentTools = (() => {
     const MAX_RESULTS = 5;
     const HIGHLIGHTED = 3;  // the agent walks through the top 3 results
-    // Words people say that are not product properties: "show me the yellow umbrellas" → "yellow"
     // Words people say that are not product properties: "show me the yellow umbrellas" → "yellow".
     // Prices, wind and weight have their own filters, so their wording ("under 30 dollars") is dropped too.
     const FILLER = new Set([
         'umbrella', 'umbrellas', 'one', 'ones', 'please', 'show', 'me', 'some', 'any', 'the', 'a', 'an',
-        'i', 'need', 'want', 'find', 'get', 'looking', 'look', 'for', 'something', 'that', 'with', 'and', 'in', 'of',
+        'i', 'my', 'need', 'want', 'find', 'get', 'looking', 'look', 'for', 'something', 'that', 'with', 'and', 'in', 'of',
+        'it', 'is', 'to', 'can', 'you', 'have', 'like', 'good', 'nice', 'really', 'very',
         'under', 'below', 'less', 'than', 'over', 'above', 'around', 'about', 'dollar', 'dollars', 'bucks', 'usd',
         'cheap', 'cheaper', 'cheapest', 'color', 'colour', 'colored', 'coloured',
     ]);
+
+    // Spoken spec words become structured filters (unless the agent already set that filter) and leave the text
+    // query: "windproof" must find a 55 mph golf umbrella whose description never says "windproof".
+    const SPEC_WORDS = [
+        { re: /\bwind[\s-]*(?:proof|resistant|resistance)\b/g, key: 'min_wind_mph', value: 50 },
+        { re: /\b(?:light|lightweight)\b/g, key: 'max_weight_oz', value: 14 },
+        { re: /\bauto(?:matic)?(?:[\s-]+open(?:ing)?)?\b/g, key: 'automatic_open', value: true },
+    ];
 
     // Ids of the latest search's matches in display order: "position 1" means the first one on screen now,
     // resolved here rather than left to the model's memory of older searches.
@@ -299,12 +307,24 @@ const AgentTools = (() => {
         return words;
     }
 
-    /* "show me the yellow umbrellas" → "yellow": drop filler words and plural s, so every word left must match */
+    /* "show me the yellow umbrellas" → "yellow": drop filler words and word endings, so every word left must match.
+       Words match as substrings, so the stem "kid" finds "kids" and "travel" finds "traveling". */
     function cleanQuery(query) {
         return String(query).toLowerCase().split(/[^a-z0-9]+/)
             .filter(w => w && !FILLER.has(w) && !/^\d+$/.test(w))  // bare numbers belong to price, wind or weight
-            .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
+            .map(stem)
             .join(' ');
+    }
+
+    function stem(w) {
+        if (w.length > 5 && w.endsWith('ing')) return w.slice(0, -3).replace(/(.)\1$/, '$1');  // travelling → travel
+        if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+        return w;
+    }
+
+    /* Same text app.js applyFilters searches */
+    function searchText(p) {
+        return `${p.name} ${p.brand} ${p.color} ${p.color_family} ${p.description} ${p.specs.frame_material}`.toLowerCase();
     }
 
     function details(p) {
@@ -363,7 +383,15 @@ const AgentTools = (() => {
     const handlers = {
         search_products(args) {
             const filters = {};
-            let query = args.query ? cleanQuery(args.query) : '';
+            let spoken = args.query ? String(args.query).toLowerCase() : '';
+            const specs = {};
+            SPEC_WORDS.forEach(({ re, key, value }) => {
+                let said = false;
+                spoken = spoken.replace(re, () => { said = true; return ' '; });
+                if (said && (args[key] === undefined || args[key] === null)) specs[key] = value;
+            });
+            args = { ...args, ...specs };
+            let query = cleanQuery(spoken);
             let color = args.color ? String(args.color).trim().toLowerCase() : '';
             const named = colorWords();
             const spokenColors = query.split(' ').filter(w => named.has(w));
@@ -371,6 +399,11 @@ const AgentTools = (() => {
                 query = query.split(' ').filter(w => !named.has(w)).join(' ');
                 if (!color) color = spokenColors.join(' ');
             }
+            // A word no umbrella has ("something", "flashlight") must not empty the results; the agent is told instead.
+            const catalog = App.getProducts().map(searchText);
+            const words = query.split(' ').filter(Boolean);
+            const ignored = words.filter(w => !catalog.some(t => t.includes(w)));
+            query = words.filter(w => !ignored.includes(w)).join(' ');
             if (query) filters.search = query;
             if (color) filters.color = color;
             if (args.brand) {
@@ -402,19 +435,33 @@ const AgentTools = (() => {
             UI.markPositions(matches.slice(0, HIGHLIGHTED).map(p => p.id));
             document.getElementById('products-section').scrollIntoView({ behavior: 'smooth' });
 
-            if (!matches.length) {
-                return {
-                    total_matches: 0,
-                    query_used: query,
-                    color_used: color || null,
-                    results: [],
-                    note: 'No umbrellas match these filters. Tell the user and offer to relax one of them.',
-                };
-            }
-            return {
+            const applied = {
+                query: query || undefined,
+                color: color || undefined,
+                brand: filters.brand,
+                max_price: filters.maxPrice,
+                min_rating: filters.minRating,
+                min_wind_mph: filters.minWind,
+                max_weight_oz: filters.maxWeight,
+                automatic_open: filters.autoOpen,
+                sort_by: filters.sortBy,
+            };
+            const report = {
                 total_matches: matches.length,
                 query_used: query,
                 color_used: color || null,
+                filters_applied: JSON.parse(JSON.stringify(applied)),  // drops the unset ones
+            };
+            if (ignored.length) {
+                report.ignored_words = ignored;
+                report.ignored_note = 'No umbrella in the store mentions these words, so they were left out of the search. '
+                    + 'If they mattered to the user, say the store has nothing like that.';
+            }
+            if (!matches.length) {
+                return { ...report, results: [], note: 'No umbrellas match these filters. Tell the user and offer to relax one of them.' };
+            }
+            return {
+                ...report,
                 results: matches.slice(0, MAX_RESULTS).map(summary),
                 note: `Positions 1 to ${matches.length} are valid for this search, including ones not listed here; `
                     + 'earlier positions no longer apply.',

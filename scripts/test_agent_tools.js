@@ -30,9 +30,16 @@ const App = {
     sortOptions: ['relevance'],
     closeAllPanels() { checkoutOpen = false; },
     colorMatches,
-    setFilters(f) {  // same word and color rules as app.js applyFilters
+    setFilters(f) {  // same rules as app.js applyFilters
         const words = (f.search || '').toLowerCase().split(/\s+/).filter(Boolean);
-        filtered = products.filter(p => words.every(w => text(p).includes(w)) && (!f.color || colorMatches(p, f.color)));
+        filtered = products.filter(p => (!f.brand || f.brand === 'all' || p.brand === f.brand)
+            && (!f.color || colorMatches(p, f.color))
+            && p.price <= (f.maxPrice ?? Infinity)
+            && p.specs.wind_rating_mph >= (f.minWind ?? 0)
+            && p.rating >= (f.minRating ?? 0)
+            && p.specs.weight_oz <= (f.maxWeight ?? Infinity)
+            && (!f.autoOpen || p.specs.automatic_open)
+            && words.every(w => text(p).includes(w)));
         return filtered;
     },
     openDetail(id) { opened = id; },
@@ -83,6 +90,41 @@ async function error(p) { try { await p; return null; } catch (e) { return e.mes
 
     const s = await run('search_products', { query: 'show me some umbrellas please' });
     check('a query of only filler words is no text filter', s.total_matches === products.length, `got ${s.total_matches}`);
+
+    // Natural speech: words no umbrella has, and spec words, must not empty or narrow a search wrongly
+    const kid = await run('search_products', { query: 'something for my kid' });
+    const kidsId = products.find(p => /kids/i.test(p.name)).id;
+    check('"something for my kid" finds the kids umbrella', kid.total_matches > 0 && kid.results.some(r => r.id === kidsId),
+        `got ${kid.total_matches} (query_used "${kid.query_used}")`);
+
+    const windproofIds = products.filter(p => p.price <= 30 && p.specs.wind_rating_mph >= 50).map(p => p.id);
+    const wp = await run('search_products', { query: 'windproof', max_price: 30, min_wind_mph: 50 });
+    check('"windproof" under 30 is the wind filter, not the word', wp.query_used === ''
+        && JSON.stringify(wp.results.map(r => r.id)) === JSON.stringify(windproofIds.slice(0, 5)) && wp.total_matches === windproofIds.length,
+        `want ${windproofIds}, got ${wp.results.map(r => r.id)} (query_used "${wp.query_used}")`);
+    check('the G4Free golf umbrella is among them', wp.results.some(r => r.brand === 'G4Free'), `got ${wp.results.map(r => r.brand)}`);
+    const wpOnly = await run('search_products', { query: 'windproof umbrella', max_price: 30 });
+    check('"windproof" alone sets min_wind_mph 50 and reports it', wpOnly.filters_applied.min_wind_mph === 50
+        && wpOnly.filters_applied.max_price === 30 && wpOnly.total_matches === windproofIds.length, `got ${JSON.stringify(wpOnly.filters_applied)}`);
+
+    const lightTravelIds = products.filter(p => p.specs.weight_oz <= 14 && text(p).includes('travel')).map(p => p.id);
+    const lt = await run('search_products', { query: 'light one for travel' });
+    check('"light one for travel" is max 14 oz plus "travel"', lt.query_used === 'travel' && lt.filters_applied.max_weight_oz === 14
+        && lt.total_matches === lightTravelIds.length && lightTravelIds.length > 0,
+        `want ${lightTravelIds}, got ${filtered.map(p => p.id)} (${JSON.stringify(lt.filters_applied)})`);
+    const travelling = await run('search_products', { query: 'travelling' });
+    check('"travelling" matches "travel"', travelling.query_used === 'travel' && travelling.total_matches > 0, `got "${travelling.query_used}"`);
+
+    const auto = await run('search_products', { query: 'auto open' });
+    check('"auto open" is the automatic_open filter', auto.filters_applied.automatic_open === true && auto.query_used === '',
+        `got ${JSON.stringify(auto.filters_applied)}`);
+
+    const yl = await run('search_products', { query: 'yellow' });
+    check('"yellow" is the color filter', yl.color_used === 'yellow' && yl.total_matches === yellowIds.length, `got ${yl.total_matches}`);
+
+    const odd = await run('search_products', { query: 'flashlight' });
+    check('a word no umbrella has is reported, not searched', odd.total_matches === products.length
+        && JSON.stringify(odd.ignored_words) === '["flashlight"]', `got ${odd.total_matches}, ignored ${odd.ignored_words}`);
 
     const b = await run('search_products', { query: 'blue ones' });
     check('"blue ones" finds the blue products', b.total_matches === blueIds.length, `want ${blueIds.length}, got ${b.total_matches}`);
