@@ -77,7 +77,22 @@ Tools run in the browser and update the page, for example filtering the product 
 - A product search costs a tool round trip: the model decides to call the tool (~1 s), our tool answers in ~0.2 s, and the model speaks the result. Asking the agent to say "let me look" first didn't make audio arrive sooner, so the page plays a recorded acknowledgement on `tool.call` instead (section 3).
 - The pre-buffer column shows how uneven delivery is: usually under 0.5 s, but some replies stall for several seconds mid-stream. No fixed buffer hides that without making every reply slow (section 1).
 
-Reproduce with `python -m scripts.voice_latency latency --trials 4 --silence 1400:4000 1000:2000`. `python -m scripts.voice_latency split` replays the "red umbrellas … also yellow ones" case and prints the full event sequence.
+#### Tuning pass (27 Sep 2026): three ideas, none kept
+The script now answers tool calls with the page's own `agent_tools.js` (run in Node by `scripts/agent_tools_host.js`). It sends all 7 tool definitions and the exact results the page would send. Each variant was measured over 6 runs at 1000 / 2000, one change at a time. Medians of first agent audio after the user stops talking:
+
+| Variant | "How are you?" | Product search | Search tool result | Kept |
+|---|---|---|---|---|
+| Baseline (current) | 3.40 s | 4.80 s | 1571 B | yes |
+| `input.transcription_mode: "min_latency"` | 4.31 s | 8.23 s | 1571 B | no: slower, and in one run the reply started 0.27 s before the user finished, cutting them off |
+| System prompt shortened from 3458 to 2729 characters, same rules | 5.14 s | 4.73 s | 1571 B | no: search within noise; two chit-chat runs had 7 s end-of-turn stalls on the server |
+| Trimmed tool results (search: no drawback, no empty `other_colors`; `show_product`: 2 critical reviews, 1 top review) | 3.67 s | 4.75 s | 1282 B | no: within noise |
+
+- Chit-chat calls no tool, so the tool-result trim cannot affect it. Its 3.40 → 3.67 s shift shows run-to-run noise of about ±0.3 s.
+- Typical search runs land at 4.68–4.82 s in the baseline, the short prompt and the trimmed results alike. The model's time to decide on a tool and speak doesn't depend on a few hundred bytes of prompt or result.
+- With the acknowledgement clip, the user hears something 3.4 s after a search request in every variant.
+- Final numbers are unchanged: **3.4 s** for chit-chat and **4.8 s** for a search, against 3.3 s / 4.6 s in the table above, measured on a different day.
+
+Reproduce with `python -m scripts.voice_latency latency --trials 4 --silence 1400:4000 1000:2000`. Add `--transcription-mode min_latency` to test that setting. `python -m scripts.voice_latency split` replays the "red umbrellas … also yellow ones" case and prints the full event sequence.
 
 ### Tuning and diagnostics
 Add these to the URL to tune the pipeline without redeploying:

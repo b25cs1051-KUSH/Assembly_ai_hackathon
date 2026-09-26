@@ -1,8 +1,8 @@
 """Measure Voice Agent API reply latency and reply-audio chunk timing.
 
 Streams pre-recorded speech (scripts/audio/*.wav, 24 kHz PCM16) to the Voice Agent API at
-real-time speed with the same session config as the browser, answers search_products the way
-the page does, and reports:
+real-time speed with the same session config as the browser, answers tool calls with the page's
+own agent_tools.js (run in Node by scripts/agent_tools_host.js), and reports:
 
 - turn end:      end of user speech → input.speech.stopped / reply.started
 - time to audio: end of user speech → first reply.audio
@@ -24,6 +24,7 @@ import base64
 import json
 import re
 import statistics
+import subprocess
 import time
 import wave
 from pathlib import Path
@@ -42,10 +43,7 @@ RATE = 24000
 CHUNK_BYTES = 2400  # 50 ms of PCM16 mono, like the browser's mic worklet
 SILENCE = bytes(CHUNK_BYTES)
 
-PRODUCTS = json.loads((ROOT / "data" / "products.json").read_text(encoding="utf-8"))
-BRANDS = sorted({p["brand"] for p in PRODUCTS}, key=str.lower)
 BARE_PROMPT = "You are a friendly assistant. Reply in one short spoken sentence."
-SORT_OPTIONS = ["relevance", "price_low_to_high", "price_high_to_low", "rating", "lightest", "most_wind_resistant"]
 
 
 def browser_system_prompt() -> str:
@@ -54,69 +52,26 @@ def browser_system_prompt() -> str:
     return re.search(r"const SYSTEM_PROMPT = `(.*?)`;", js, re.DOTALL).group(1)
 
 
-# Mirrors definitions() in frontend/js/agent_tools.js
-TOOLS = [
-    {
-        "type": "function",
-        "name": "search_products",
-        "description": "Filter the store's umbrellas and show the matches on screen; use it whenever the user "
-        "describes what they want or changes a requirement.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": 'Keywords that must appear in the product name or '
-                          'description, such as "bubble", "kids" or "golf". Leave out for price, wind, weight or '
-                          'rating requirements.'},
-                "brand": {"type": "string", "enum": BRANDS, "description": "Only this brand."},
-                "max_price": {"type": "number", "description": "Highest price in US dollars."},
-                "min_rating": {"type": "number", "description": "Lowest average star rating, from 1 to 5."},
-                "min_wind_mph": {"type": "number", "description": "Lowest wind rating in miles per hour. "
-                                 "Windproof usually means 50 or more."},
-                "max_weight_oz": {"type": "number", "description": "Highest weight in ounces. Light or backpack "
-                                  "friendly usually means 14 or less."},
-                "automatic_open": {"type": "boolean", "description": "True to show only umbrellas that open "
-                                   "with one button."},
-                "sort_by": {"type": "string", "enum": SORT_OPTIONS, "description": "Result order. Default is relevance."},
-            },
-        },
-    }
-]
+class ToolHost:
+    """The page's own agent_tools.js, run in Node (scripts/agent_tools_host.js): same tool definitions, same results."""
 
+    def __init__(self):
+        self.proc = subprocess.Popen(["node", str(ROOT / "scripts" / "agent_tools_host.js")], stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE, text=True, encoding="utf-8")
+        setup = self.ask({"definitions": True})
+        self.definitions, self.keyterms = setup["definitions"], setup["keyterms"]
 
-def search_products(args: dict) -> dict:
-    """Same filtering and result shape as search_products in agent_tools.js / applyFilters in app.js."""
-    words = str(args.get("query") or "").lower().split()
-    out = []
-    for p in PRODUCTS:
-        s = p["specs"]
-        if args.get("brand") and p["brand"] != args["brand"]:
-            continue
-        if p["price"] > args.get("max_price", float("inf")) or p["rating"] < args.get("min_rating", 0):
-            continue
-        if s["wind_rating_mph"] < args.get("min_wind_mph", 0) or s["weight_oz"] > args.get("max_weight_oz", float("inf")):
-            continue
-        if args.get("automatic_open") and not s["automatic_open"]:
-            continue
-        hay = f'{p["name"]} {p["brand"]} {p["description"]} {s["frame_material"]}'.lower()
-        if not all(w in hay for w in words):
-            continue
-        out.append(p)
-    key = {
-        "price_low_to_high": lambda p: p["price"],
-        "price_high_to_low": lambda p: -p["price"],
-        "rating": lambda p: -p["rating"],
-        "lightest": lambda p: p["specs"]["weight_oz"],
-        "most_wind_resistant": lambda p: -p["specs"]["wind_rating_mph"],
-    }.get(args.get("sort_by"))
-    if key:
-        out.sort(key=key)
-    if not out:
-        return {"total_matches": 0, "results": [],
-                "note": "No umbrellas match these filters. Tell the user and offer to relax one of them."}
-    return {"total_matches": len(out), "results": [
-        {"position": i + 1, "id": p["id"], "name": p["name"], "brand": p["brand"], "price": p["price"],
-         "rating": p["rating"], "wind_mph": p["specs"]["wind_rating_mph"], "weight_oz": p["specs"]["weight_oz"],
-         "automatic_open": p["specs"]["automatic_open"]} for i, p in enumerate(out[:5])]}
+    def ask(self, req: dict) -> dict:
+        self.proc.stdin.write(json.dumps(req) + "\n")
+        self.proc.stdin.flush()
+        return json.loads(self.proc.stdout.readline())
+
+    def run(self, name: str, arguments: dict) -> tuple[str, bool]:
+        """(result JSON string, is_error), shaped like runTool in voice_agent.js"""
+        out = self.ask({"name": name, "arguments": arguments})
+        if "error" in out:
+            return json.dumps({"error": out["error"]}), True
+        return json.dumps(out["result"]), False
 
 
 def load_pcm(name: str) -> bytes:
@@ -141,22 +96,23 @@ async def mint_token() -> str:
 
 
 async def run_session(clips: list[tuple[str, float]], silence: tuple[int, int], tail_s: float = 15.0,
-                      bare: bool = False, voice: str | None = None) -> dict:
+                      bare: bool = False, voice: str | None = None, mode: str | None = None) -> dict:
     """Streams each clip followed by its gap of silence. Returns the event log (times in s from session start)."""
     t0 = time.perf_counter()
     now = lambda: time.perf_counter() - t0
     events, speech = [], []  # speech: (start, end) of each clip as sent
     ready = asyncio.Event()
+    tools = ToolHost()
     state = {"turn_active": False, "pending": [], "last_activity": 0.0}
 
     async with websockets.connect(f"{WS_URL}?token={await mint_token()}", max_size=None) as ws:
         await ws.send(json.dumps({"type": "session.update", "session": {
             # bare: a one-line prompt and no tools, to separate platform latency from our config
             "system_prompt": BARE_PROMPT if bare else browser_system_prompt(),
-            "tools": [] if bare else TOOLS,
-            "input": {"keyterms": ["VoiceCart", *BRANDS], "turn_detection": {
+            "tools": [] if bare else tools.definitions,
+            "input": {"keyterms": tools.keyterms, "turn_detection": {
                 "vad_threshold": 0.5, "min_silence": silence[0], "max_silence": silence[1],
-                "interrupt_response": True}},
+                "interrupt_response": True}, **({"transcription_mode": mode} if mode else {})},
             **({"output": {"voice": voice}} if voice else {}),
         }}))
 
@@ -190,8 +146,12 @@ async def run_session(clips: list[tuple[str, float]], silence: tuple[int, int], 
                         state["pending"].clear()
                     await flush()
                 elif e["type"] == "tool.call":
-                    result = search_products(e.get("arguments") or {})
-                    state["pending"].append({"type": "tool.result", "call_id": e["call_id"], "result": json.dumps(result)})
+                    result, is_error = tools.run(e["name"], e.get("arguments") or {})
+                    rec["result_bytes"] = len(result)
+                    msg = {"type": "tool.result", "call_id": e["call_id"], "result": result}
+                    if is_error:
+                        msg["is_error"] = True
+                    state["pending"].append(msg)
                     await flush()
                 elif e["type"] == "session.ended":
                     return
@@ -229,6 +189,7 @@ async def run_session(clips: list[tuple[str, float]], silence: tuple[int, int], 
             await asyncio.wait_for(rx, 5)
         except (asyncio.TimeoutError, websockets.ConnectionClosed):
             rx.cancel()
+    tools.proc.kill()
     return {"events": events, "speech": speech}
 
 
@@ -280,6 +241,7 @@ def analyse_single(run: dict) -> dict:
         "chunk_ms": statistics.median(d for _, d in chunks) * 1000 if chunks else None,
         "speed": (sum(d for _, d in chunks) / max(1e-6, chunks[-1][0] - chunks[0][0])) if len(chunks) > 1 else None,
         "said": " | ".join(r["text"] for r in audio_replies),
+        "tool_bytes": sum(e.get("result_bytes", 0) for e in after if e["type"] == "tool.call") or None,
     }
 
 
@@ -290,17 +252,18 @@ def fmt(v, unit="ms"):
 
 
 async def cmd_latency(trials: int, settings: list[tuple[int, int]], lines: list[str], bare: bool,
-                      voice: str | None = None):
+                      voice: str | None = None, mode: str | None = None):
     rows = []
     for ms in settings:
         for line in lines:
             for i in range(trials):
-                r = analyse_single(await run_session([(line, 0.0)], ms, bare=bare, voice=voice))
+                r = analyse_single(await run_session([(line, 0.0)], ms, bare=bare, voice=voice, mode=mode))
                 rows.append((ms, line, r))
-                print(f"voice={voice or 'default'} silence={ms[0]}/{ms[1]} {line:8s} #{i + 1}: stopped {fmt(r['speech_stopped'])}  "
+                print(f"voice={voice or 'default'} mode={mode or 'default'} silence={ms[0]}/{ms[1]} {line:8s} #{i + 1}: stopped {fmt(r['speech_stopped'])}  "
                       f"reply {fmt(r['reply_started'])}  first sound {fmt(r['first_sound'])}  first audio {fmt(r['first_audio'])}  "
                       f"tool→reply {fmt(r['tool_to_reply'])}  prebuffer {fmt(r['prebuffer'])}  "
-                      f"chunk {fmt((r['chunk_ms'] or 0) / 1000)}  speed {fmt(r['speed'], 'x')}x  | {r['said'][:70]}",
+                      f"chunk {fmt((r['chunk_ms'] or 0) / 1000)}  speed {fmt(r['speed'], 'x')}x  "
+                      f"tool result {r['tool_bytes'] or 0} B  | {r['said'][:70]}",
                       flush=True)
     print("\nMedians (max) in ms, measured from the end of user speech:")
     print("silence    line      first_sound        first_audio        reply_started      tool→reply         prebuffer")
@@ -368,13 +331,15 @@ def main():
     ap.add_argument("--lines", nargs="+", default=["chitchat", "search"])
     ap.add_argument("--bare", action="store_true", help="one-line prompt, no tools")
     ap.add_argument("--voice", help="output.voice, e.g. anna, alba, michael (default: the API's default)")
+    ap.add_argument("--transcription-mode", choices=["balanced", "min_latency", "max_accuracy"],
+                    help="input.transcription_mode (default: the API's default, balanced)")
     ap.add_argument("--gap", type=float, default=1.8, help="split mode: silence between the two clips (s)")
     a = ap.parse_args()
     if not config.ASSEMBLYAI_API_KEY:
         raise SystemExit("ASSEMBLYAI_API_KEY is not set (.env)")
     settings = [tuple(int(x) for x in pair.split(":")) for pair in a.silence]
     if a.mode == "latency":
-        asyncio.run(cmd_latency(a.trials, settings, a.lines, a.bare, a.voice))
+        asyncio.run(cmd_latency(a.trials, settings, a.lines, a.bare, a.voice, a.transcription_mode))
     elif a.mode == "capture":
         asyncio.run(cmd_capture(a.trials, settings, a.lines))
     else:
