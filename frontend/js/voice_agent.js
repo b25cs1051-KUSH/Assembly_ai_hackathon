@@ -42,13 +42,13 @@ const VoiceAgent = (() => {
     }
 
     const SYSTEM_PROMPT = `You are the voice shopping assistant for VoiceCart, an online umbrella store.
-You are talking out loud, so never use markdown, lists, emojis or symbols. Keep replies to one or two short sentences.
+You are talking out loud, so never use markdown, lists, emojis or symbols. Keep replies short, usually one or two sentences. When walking through search results you may use up to five short sentences.
 Round prices when speaking, for example "about thirty dollars".
 Be warm, friendly and humble, like a helpful friend in the store. If you get something wrong, apologise briefly and correct yourself.
 Whenever the user describes what they want or changes a requirement, call search_products. It updates the products on the user's screen. Each call replaces the previous filters, so include every requirement the user still wants.
 Only talk about products, prices, specs and ratings that a tool returned. Never invent them. If you do not know something, say so.
-After a search, say how many umbrellas matched, then walk through the top three by position, one short sentence each with its best point and its main drawback from the tool results, then ask which one interests them.
-Results are numbered by position, so "the second one" means position two of the latest search. Tools take the product's id field, not its position.
+After a search, say how many umbrellas matched, then walk through the top three by position, one short sentence each with its best point and its main drawback from the tool results, then ask which one interests them. Introduce each one by position and brand, for example "The first one, the TUMELLA, …".
+Results are numbered by position, so "the second one" means position two of the latest search. When the user refers to a result by its number or order, pass its position from the latest search; never guess an id. Positions from earlier searches no longer apply.
 When the user asks for more about a product or what people say, call show_product. When they want to compare or choose, call compare_products with two or three ids.
 Use update_cart to add, remove or change quantities. When the user wants to pay, call checkout, read the total, and ask them to confirm. Only call place_order with user_confirmed true after they clearly say yes. If they say no, do not place it.
 If nothing matches, say so and offer to relax one requirement, such as the price.`;
@@ -109,6 +109,13 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     // Live agent caption, built from word deltas
     let agentText = '';
+
+    // Card highlights timed to the agent's speech: each product mention in agentText is fired when the
+    // reply's playback reaches its estimated time (character offset ÷ speaking rate).
+    let charsPerSec = 14;              // speaking rate, refined after every reply
+    let replyAudioS = 0;               // seconds of audio received for the current reply
+    let pendingHighlights = [];        // { id, atS }
+    let seenMentions = new Set();      // character offsets already scheduled in this reply
 
     // Tool results may only be sent once the current turn is over (reply.done). Results from a
     // reply the user interrupted are thrown away; turnGen marks which results are still valid.
@@ -234,6 +241,8 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 turnActive = true;
                 acceptAudio = true;
                 agentText = '';
+                resetHighlights();
+                replyAudioS = 0;
                 replySeg = ++segCounter;
                 replyStartedAt = performance.now();
                 droppedChunks = 0;
@@ -250,6 +259,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                     const needsSpace = agentText && !/\s$/.test(agentText) && !/^\s/.test(evt.delta);
                     agentText += (needsSpace ? ' ' : '') + evt.delta;
                     showAgent(agentText);
+                    scheduleMentions();
                 }
                 break;
 
@@ -263,10 +273,12 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 if (playNode) playNode.port.postMessage({ type: 'end', seg: replySeg });
                 if (evt.status === 'interrupted') {
                     discardHeld('server interrupted the reply');
+                    resetHighlights();
                     acceptAudio = false;
                     pendingResults = [];
                     turnGen++;  // results of tools still running for this reply are stale
                 } else {
+                    learnSpeakingRate();
                     flushResults();
                 }
                 break;
@@ -304,11 +316,23 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             result = { error: err.message };
             isError = true;
         }
+        log(`tool ${evt.name}`, { args: evt.arguments, result: toolSummary(result) });
         if (gen !== turnGen) return;  // interrupted, or the session ended, while the tool ran
         const msg = { type: 'tool.result', call_id: evt.call_id, result: JSON.stringify(result) };
         if (isError) msg.is_error = true;
         pendingResults.push(msg);
         flushResults();  // the tool may finish after reply.done has already arrived
+    }
+
+    /* Short form of a tool result for the debug log */
+    function toolSummary(r) {
+        if (!r || typeof r !== 'object') return r;
+        if (r.error) return { error: r.error };
+        if (r.results) return { matches: r.total_matches, query: r.query_used, ids: r.results.map(x => x.id) };
+        if (r.products) return { ids: r.products.map(x => x.id) };
+        if (r.id) return { id: r.id, position: r.position };
+        if (r.items) return { items: r.items.map(i => `${i.id}×${i.quantity}`), total: r.total };
+        return r;
     }
 
     function flushResults() {
@@ -341,6 +365,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         if (!pcm.length) return;
         const samples = new Float32Array(pcm.length);
         for (let i = 0; i < pcm.length; i++) samples[i] = pcm[i] / 0x8000;
+        replyAudioS += samples.length / SAMPLE_RATE;
         pushAudio(replySeg, samples);
     }
 
@@ -358,9 +383,87 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             agentPlaying = false;
             agentAudio = false;
             if (status === 'speaking') setStatus('listening');
+            // The reply has played to the end: any mention whose time was overestimated is due now.
+            if (!turnActive && replyAudioS > 0) fireHighlights(replySeg, Infinity);
         } else if (m.type === 'underrun') {
             log('underrun: paused mid-reply to rebuffer', { needMs: m.needMs, msIntoReply: sinceReply() });
+        } else if (m.type === 'progress') {
+            fireHighlights(m.seg, m.playedS);
         }
+    }
+
+    /* ── CARD HIGHLIGHTS ────────────────────────────────────────── */
+    const ORDINALS = { first: 1, second: 2, third: 3, one: 1, two: 2, three: 3 };
+    // Only explicit references count: "the first one", "number two", "the last one"; not "at first".
+    const POSITION_PATTERNS = [
+        [/\b(first|second|third)\s+(?:one|option|pick|umbrella)\b/gi, m => ORDINALS[m[1].toLowerCase()]],
+        [/\b(?:number|option)\s+(one|two|three)\b/gi, m => ORDINALS[m[1].toLowerCase()]],
+        [/\bthe\s+last\s+one\b/gi, () => 'last'],
+    ];
+
+    /* Product mentions in text, as [{ id, offset }] sorted by offset. candidates: the numbered cards,
+       [{ id, pos, brand }]. A brand counts only when one numbered card has it. */
+    function findMentions(text, candidates) {
+        const idAt = new Map(candidates.map(c => [c.pos, c.id]));
+        const lastPos = Math.max(0, ...candidates.map(c => c.pos));
+        const found = [];
+        for (const [re, position] of POSITION_PATTERNS) {
+            for (const m of text.matchAll(re)) {
+                const p = position(m);
+                const id = idAt.get(p === 'last' ? lastPos : p);
+                if (id !== undefined) found.push({ id, offset: m.index });
+            }
+        }
+        const brandCount = {};
+        for (const c of candidates) brandCount[c.brand.toLowerCase()] = (brandCount[c.brand.toLowerCase()] || 0) + 1;
+        for (const c of candidates) {
+            if (brandCount[c.brand.toLowerCase()] !== 1) continue;
+            const escaped = c.brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            for (const m of text.matchAll(new RegExp(`\\b${escaped}\\b`, 'gi'))) found.push({ id: c.id, offset: m.index });
+        }
+        return found.sort((a, b) => a.offset - b.offset);
+    }
+
+    /* The cards search_products numbered 1–3 (UI.markPositions) */
+    function numberedCards() {
+        return [...document.querySelectorAll('.product-card')].flatMap(card => {
+            const tag = card.querySelector('.card-position');
+            const brand = card.querySelector('.card-brand-badge');
+            return tag && brand ? [{ id: card.dataset.id, pos: Number(tag.textContent), brand: brand.textContent.trim() }] : [];
+        });
+    }
+
+    function scheduleMentions() {
+        const cards = numberedCards();
+        if (!cards.length) return;
+        for (const m of findMentions(agentText, cards)) {
+            if (seenMentions.has(m.offset)) continue;
+            seenMentions.add(m.offset);
+            pendingHighlights.push({ id: m.id, atS: m.offset / charsPerSec });
+        }
+    }
+
+    function fireHighlights(seg, playedS) {
+        if (seg !== replySeg || !pendingHighlights.length) return;
+        const due = pendingHighlights.filter(h => h.atS <= playedS);
+        if (!due.length) return;
+        pendingHighlights = pendingHighlights.filter(h => h.atS > playedS);
+        const latest = due.reduce((a, b) => (b.atS >= a.atS ? b : a));
+        UI.highlightCard(latest.id);
+        log('highlight card', { id: latest.id, atS: Number(latest.atS.toFixed(2)), playedS: Number(Math.min(playedS, 999).toFixed(2)) });
+    }
+
+    function resetHighlights() {
+        pendingHighlights = [];
+        seenMentions = new Set();
+    }
+
+    /* Characters per second of reply audio, averaged over the session */
+    function learnSpeakingRate() {
+        if (replyAudioS < 1 || !agentText) return;
+        const rate = agentText.length / replyAudioS;
+        charsPerSec = Math.min(25, Math.max(8, 0.7 * charsPerSec + 0.3 * rate));
+        log('speaking rate', { charsPerSec: Number(charsPerSec.toFixed(1)) });
     }
 
     function stopPlayback() {
@@ -457,6 +560,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         if (hold === 'none' && !agentAudio) return;
         log(`discard queued audio: ${reason}`);
         stopPlayback();
+        resetHighlights();  // the discarded words will never be heard
         resume(reason);
     }
 
@@ -570,6 +674,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         turnActive = false;
         pendingResults = [];
         turnGen++;
+        resetHighlights();
         ws = null;
     }
 
@@ -597,5 +702,5 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     document.addEventListener('DOMContentLoaded', init);
 
-    return { start, stop };
+    return { start, stop, findMentions };  // findMentions is exposed for scripts/test_mentions.js
 })();

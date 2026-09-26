@@ -15,6 +15,8 @@
                  {type:'end', seg}   no more audio for this segment
                  {type:'clear'}      drop everything (barge-in)
    Messages out: {type:'playing'} {type:'idle'} {type:'underrun', needMs}
+                 {type:'progress', seg, playedS}   ~every 50 ms while playing, so the
+                 page can time things (card highlights) to the words being heard
    ================================================================= */
 
 // Replayed on captured replies at 0.8× delivery: about 2 pauses per reply, against 40–50 micro-gaps
@@ -23,6 +25,7 @@ const REBUFFER_S = 0.5;   // buffered before continuing after an underrun
 const STEP_S = 0.2;       // each underrun adds this to the start and rebuffer waits…
 const MAX_S = 1.0;        // …up to this
 const FADE = 128;         // ~5 ms fade out before a pause and in after it, so it doesn't click
+const PROGRESS_SAMPLES = 1200;  // a progress message every ~50 ms of played audio
 
 class PlaybackProcessor extends AudioWorkletProcessor {
     constructor(options) {
@@ -39,6 +42,9 @@ class PlaybackProcessor extends AudioWorkletProcessor {
         this.resuming = false;    // buffering after an underrun, not at a segment start
         this.fadeIn = 0;          // samples of fade-in left
         this.lastSeg = null;      // segment of the last sample played
+        this.playedSeg = null;    // segment whose played samples are being counted…
+        this.played = 0;          // …and how many of its samples have played
+        this.sinceProgress = 0;   // samples since the last progress message
         this.port.onmessage = e => this.onMessage(e.data);
     }
 
@@ -107,11 +113,18 @@ class PlaybackProcessor extends AudioWorkletProcessor {
             this.offset += n;
             this.buffered -= n;
             this.lastSeg = head.seg;
+            if (head.seg !== this.playedSeg) { this.playedSeg = head.seg; this.played = 0; }
+            this.played += n;
+            this.sinceProgress += n;
             if (this.offset === head.samples.length) { this.queue.shift(); this.offset = 0; }
         }
         for (let k = 0; k < i && this.fadeIn > 0; k++, this.fadeIn--) out[k] *= 1 - this.fadeIn / FADE;
         if (starving) for (let k = 0; k < i; k++) out[k] *= 1 - (k + 1) / i;
         out.fill(0, i);
+        if (this.sinceProgress >= PROGRESS_SAMPLES) {
+            this.sinceProgress = 0;
+            this.port.postMessage({ type: 'progress', seg: this.playedSeg, playedS: this.played / sampleRate });
+        }
 
         if (starving) {
             this.underruns++;

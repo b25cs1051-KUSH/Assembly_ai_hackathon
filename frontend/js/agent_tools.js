@@ -8,6 +8,12 @@
 const AgentTools = (() => {
     const MAX_RESULTS = 5;
     const HIGHLIGHTED = 3;  // the agent walks through the top 3 results
+    // Words people say that are not product properties: "show me the yellow umbrellas" → "yellow"
+    const FILLER = new Set(['umbrella', 'umbrellas', 'one', 'ones', 'please', 'show', 'me', 'some', 'any', 'the', 'a', 'an']);
+
+    // Ids of the latest search's matches in display order: "position 1" means the first one on screen now,
+    // resolved here rather than left to the model's memory of older searches.
+    let latestResults = [];
 
     /* Shown in the voice dock's tool chip while a tool runs */
     const LABELS = {
@@ -24,9 +30,14 @@ const AgentTools = (() => {
         const productIds = App.getProducts().map(p => p.id);
         const productId = {
             type: 'string',
-            description: 'The product\'s id field from a search_products result, not its position. Example: "4".',
+            description: 'The product\'s id field, for a product that is not in the latest search. Prefer position for numbered results. Example: "4".',
         };
         if (productIds.length) productId.enum = productIds;  // an empty enum would make every id invalid
+        const position = {
+            type: 'integer',
+            minimum: 1,
+            description: 'Result number in the latest search, 1 for the first. Use it when the user says "the first one" or "number two". Give position or product_id.',
+        };
         return [
             {
                 type: 'function',
@@ -61,8 +72,7 @@ const AgentTools = (() => {
                 description: 'Open one umbrella\'s detail page and get its specs, pros, cons and review summary; use it when the user asks for more about a product or what people say about it.',
                 parameters: {
                     type: 'object',
-                    properties: { product_id: productId },
-                    required: ['product_id'],
+                    properties: { position, product_id: productId },
                 },
             },
             {
@@ -72,6 +82,13 @@ const AgentTools = (() => {
                 parameters: {
                     type: 'object',
                     properties: {
+                        positions: {
+                            type: 'array',
+                            items: { type: 'integer', minimum: 1 },
+                            minItems: 2,
+                            maxItems: 3,
+                            description: 'Result numbers in the latest search, for example [1, 2] for "the first two". Give positions or product_ids.',
+                        },
                         product_ids: {
                             type: 'array',
                             items: productId,
@@ -80,7 +97,6 @@ const AgentTools = (() => {
                             description: 'Ids of the 2 or 3 products to compare, for example ["1", "4"].',
                         },
                     },
-                    required: ['product_ids'],
                 },
             },
             {
@@ -95,10 +111,11 @@ const AgentTools = (() => {
                             enum: ['add', 'remove', 'set_quantity'],
                             description: 'add puts quantity more in the cart, remove takes the product out, set_quantity sets an exact amount.',
                         },
+                        position,
                         product_id: productId,
                         quantity: { type: 'integer', description: 'How many. Defaults to 1 for add; required for set_quantity. Example: 2.' },
                     },
-                    required: ['action', 'product_id'],
+                    required: ['action'],
                 },
             },
             {
@@ -141,8 +158,40 @@ const AgentTools = (() => {
         return p;
     }
 
+    /* Result number N of the latest search, as numbered on screen */
+    function atPosition(n) {
+        const pos = Number(n);
+        if (!latestResults.length) throw new Error('There are no search results yet. Call search_products first.');
+        if (!Number.isInteger(pos) || pos < 1 || pos > latestResults.length) {
+            throw new Error(`Position ${n} does not exist; the latest search has ${latestResults.length} result${latestResults.length === 1 ? '' : 's'}.`);
+        }
+        return product(latestResults[pos - 1]);
+    }
+
+    /* The product a call is about: position (preferred for numbered results) or product_id */
+    function target(args) {
+        if (args.position !== undefined && args.position !== null) return atPosition(args.position);
+        if (args.product_id !== undefined && args.product_id !== null) return product(args.product_id);
+        throw new Error('Give position (its number in the latest search) or product_id.');
+    }
+
+    /* Position in the latest search, or null if it is not in it */
+    function positionOf(id) {
+        const i = latestResults.indexOf(id);
+        return i < 0 ? null : i + 1;
+    }
+
+    /* "show me the yellow umbrellas" → "yellow": drop filler words and plural s, so every word left must match */
+    function cleanQuery(query) {
+        return String(query).toLowerCase().split(/[^a-z0-9]+/)
+            .filter(w => w && !FILLER.has(w))
+            .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
+            .join(' ');
+    }
+
     function details(p) {
         return {
+            position: positionOf(p.id),
             id: p.id,
             name: p.name,
             brand: p.brand,
@@ -154,9 +203,9 @@ const AgentTools = (() => {
             cons: p.cons,
             reviews_summary: p.reviews_summary,
             // Grounds answers to "what do people complain about?" in real review text
-            critical_reviews: p.reviews.filter(r => r.rating <= 4).sort((a, b) => a.rating - b.rating)
+            critical_reviews: (p.reviews || []).filter(r => r.rating <= 4).sort((a, b) => a.rating - b.rating)
                 .slice(0, 3).map(r => ({ rating: r.rating, text: r.text })),
-            top_reviews: p.reviews.filter(r => r.rating === 5).slice(0, 2).map(r => ({ rating: r.rating, text: r.text })),
+            top_reviews: (p.reviews || []).filter(r => r.rating === 5).slice(0, 2).map(r => ({ rating: r.rating, text: r.text })),
         };
     }
 
@@ -182,8 +231,9 @@ const AgentTools = (() => {
             wind_mph: p.specs.wind_rating_mph,
             weight_oz: p.specs.weight_oz,
             automatic_open: p.specs.automatic_open,
-            best_point: p.pros[0],
-            main_drawback: p.cons[0],
+            // Optional in the data: a missing field must not make the whole search fail
+            best_point: (p.pros || [])[0] || null,
+            main_drawback: (p.cons || [])[0] || null,
         };
     }
 
@@ -191,7 +241,8 @@ const AgentTools = (() => {
     const handlers = {
         search_products(args) {
             const filters = {};
-            if (args.query) filters.search = String(args.query).trim();
+            const query = args.query ? cleanQuery(args.query) : '';
+            if (query) filters.search = query;
             if (args.brand) {
                 if (!App.getBrands().includes(args.brand)) {
                     throw new Error(`Unknown brand "${args.brand}". Brands in the store: ${App.getBrands().join(', ')}.`);
@@ -215,22 +266,30 @@ const AgentTools = (() => {
             if (args.automatic_open === true) filters.autoOpen = true;
 
             App.closeAllPanels();
+            UI.highlightCard(null);  // the outline belonged to the previous search
             const matches = App.setFilters(filters);
+            latestResults = matches.map(p => p.id);
             UI.markPositions(matches.slice(0, HIGHLIGHTED).map(p => p.id));
             document.getElementById('products-section').scrollIntoView({ behavior: 'smooth' });
 
             if (!matches.length) {
                 return {
                     total_matches: 0,
+                    query_used: query,
                     results: [],
                     note: 'No umbrellas match these filters. Tell the user and offer to relax one of them.',
                 };
             }
-            return { total_matches: matches.length, results: matches.slice(0, MAX_RESULTS).map(summary) };
+            return {
+                total_matches: matches.length,
+                query_used: query,
+                results: matches.slice(0, MAX_RESULTS).map(summary),
+                note: 'Positions refer to this search only; earlier positions no longer apply.',
+            };
         },
 
         show_product(args) {
-            const p = product(args.product_id);
+            const p = target(args);
             App.closeAllPanels();
             App.openDetail(p.id);
             UI.highlightCard(p.id);
@@ -238,15 +297,19 @@ const AgentTools = (() => {
         },
 
         compare_products(args) {
-            const ids = [...new Set((args.product_ids || []).map(String))];
+            const picked = args.positions && args.positions.length
+                ? args.positions.map(n => atPosition(n).id)
+                : (args.product_ids || []).map(String);
+            const ids = [...new Set(picked)];
             if (ids.length < 2 || ids.length > 3) {
-                throw new Error(`compare_products needs 2 or 3 different product ids, got ${ids.length}.`);
+                throw new Error(`compare_products needs 2 or 3 different products (positions or product_ids), got ${ids.length}.`);
             }
             const products = ids.map(product);
             App.closeAllPanels();
             App.compareProducts(ids);
             return {
                 products: products.map(p => ({
+                    position: positionOf(p.id),
                     id: p.id,
                     name: p.name,
                     price: p.price,
@@ -262,7 +325,7 @@ const AgentTools = (() => {
         },
 
         update_cart(args) {
-            const p = product(args.product_id);
+            const p = target(args);
             const inCart = App.getCartSummary().items.find(i => i.id === p.id);
             const qty = args.quantity === undefined || args.quantity === null ? undefined : Number(args.quantity);
             if (qty !== undefined && (!Number.isInteger(qty) || qty < 0 || qty > 20)) {
