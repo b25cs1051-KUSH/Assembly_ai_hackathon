@@ -1,11 +1,13 @@
 /* =================================================================
    VoiceAgent — browser ↔ AssemblyAI Voice Agent API
    Mic → PCM16 24 kHz → input.audio; reply.audio → Web Audio playback.
-   Barge-in ("mute and listen"): when the local detector hears speech, the
-   agent is muted at once. Echo stops the moment our output stops, so if the
-   mic goes quiet within PROBE_MS it was echo and playback resumes; if the
-   user keeps talking, the rest of the reply is dropped and the agent stays
-   silent until it answers. The server's input.speech.started also stops it.
+   Barge-in ("pause, then let the server decide"): agent audio plays in its
+   own AudioContext. When the local detector (or the server) hears the user,
+   that context is suspended at once, so the agent stops mid-word and no
+   audio is lost. Echo stops the moment our output stops, so if the mic goes
+   quiet within PROBE_MS it was echo and playback resumes. Otherwise the held
+   audio is discarded only when the server says the reply was interrupted
+   (or starts a new one); if the server never reacts, playback resumes.
    Add ?debug=1 to the URL for an on-screen log of audio timing.
    Docs: https://www.assemblyai.com/docs/voice-agents/voice-agent-api
    ================================================================= */
@@ -17,8 +19,8 @@ const VoiceAgent = (() => {
     const PLAYBACK_LEAD_S = 0.2;       // jitter buffer at the start of a reply and after an underrun
     const PLAYBACK_LEAD_STEP_S = 0.1;  // each underrun grows the buffer by this much…
     const PLAYBACK_LEAD_MAX_S = 0.5;   // …up to this, for the rest of the session
-    const PROBE_MS = 600;              // muted this long: mic still hearing speech → user, went quiet → echo
-    const MISSED_MS = 2500;            // after the user stops, wait this long for the server to react
+    const PROBE_MS = 600;              // paused this long: mic still hearing speech → user, went quiet → echo
+    const RELEASE_GRACE_MS = 800;      // after the user stops, wait this long for the server before resuming
 
     const params = new URLSearchParams(location.search);
     const DEBUG = params.has('debug');
@@ -61,11 +63,11 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     };
 
     let ws = null;
-    let audioCtx = null;
+    let audioCtx = null;               // mic capture, native sample rate
+    let playCtx = null;                // agent audio at 24 kHz; suspended to pause the agent instantly
     let micStream = null;
     let micSource = null;
     let micNode = null;
-    let outGain = null;                // all agent audio goes through this, so it can be muted instantly
     let sessionReady = false;
     let status = 'idle';
     // Bumped on every start/stop; async work from an older attempt checks it and bails out.
@@ -74,17 +76,18 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     // Agent audio playback
     const playing = new Set();
     let nextStartTime = 0;
-    // False from the moment the user barges in until the next reply starts, so audio chunks
-    // of the interrupted reply that are still in flight are dropped instead of played.
+    // False after the server reports a reply as interrupted, until the next reply starts, so any
+    // late chunks of the interrupted reply are dropped.
     let acceptAudio = true;
     let leadS = PLAYBACK_LEAD_S;
 
-    // Local barge-in state: 'none' → 'probing' (muted, deciding user vs echo) → 'committed' (reply dropped)
-    let barge = 'none';
+    // Barge-in hold: 'none' → 'probing' (paused, deciding user vs echo) → 'user' (paused, waiting for the server)
+    let hold = 'none';
     let userSpeaking = false;          // local detector: between 'speech' and 'silence'
-    let mutedAt = 0;
+    let heldAt = 0;
+    let heardUser = false;             // the server transcribed the user since the hold began
     let probeTimer = null;
-    let missedTimer = null;
+    let releaseTimer = null;
 
     // Debug counters for the current reply
     let replyStartedAt = 0;
@@ -186,33 +189,39 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 break;
 
             case 'input.speech.started':
-                // Barge-in: cut the agent off the moment the user starts talking.
+                // Pause the agent; the reply is only discarded once the server reports it interrupted.
                 turnActive = true;
                 log('server speech.started', {
                     msIntoReply: sinceReply(),
-                    audioPlaying: playing.size > 0,
-                    msAfterLocalMute: mutedAt ? Math.round(performance.now() - mutedAt) : null,
+                    audioQueued: playing.size > 0,
+                    msAfterLocalPause: heldAt ? Math.round(performance.now() - heldAt) : null,
                 });
-                resetBarge();
-                acceptAudio = false;
-                stopPlayback();
+                if (playing.size) pause('user');
+                else if (hold === 'probing') hold = 'user';
+                clearTimeout(probeTimer);
+                clearTimeout(releaseTimer);
                 showUser('…');
+                break;
+
+            case 'input.speech.stopped':
+                if (hold !== 'none' && !userSpeaking) releaseAfterGrace();
                 break;
 
             case 'transcript.user.delta':
             case 'transcript.user':
-                clearTimeout(missedTimer);
+                heardUser = true;
                 if (evt.text) showUser(evt.text);
                 break;
 
             case 'reply.started':
+                // A new reply while the agent is paused for the user: the held audio is an old answer.
+                if (hold !== 'none') discardHeld('new reply started');
                 turnActive = true;
                 acceptAudio = true;
                 agentText = '';
-                nextStartTime = 0;  // a fresh reply gets the full jitter buffer
+                if (!playing.size) nextStartTime = 0;  // a fresh reply gets the full jitter buffer
                 replyStartedAt = performance.now();
                 droppedChunks = 0;
-                resetBarge();
                 break;
 
             case 'reply.audio':
@@ -235,12 +244,10 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
             case 'reply.done':
                 turnActive = false;
-                log('reply.done', { status: evt.status, msIntoReply: sinceReply(), droppedChunks });
-                if (evt.status === 'completed' && droppedChunks) {
-                    log('reply completed on the server, but its end was not played (barge-in)', { droppedChunks });
-                }
+                log('reply.done', { status: evt.status, msIntoReply: sinceReply(), droppedChunks, hold });
                 if (evt.status === 'interrupted') {
-                    stopPlayback();
+                    discardHeld('server interrupted the reply');
+                    acceptAudio = false;
                     pendingResults = [];
                     turnGen++;  // results of tools still running for this reply are stale
                 } else {
@@ -311,20 +318,21 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     /* ── PLAYBACK ───────────────────────────────────────────────── */
     function playChunk(b64) {
-        if (!audioCtx || !b64) return;
+        if (!playCtx || !b64) return;
         const bytes = base64ToBytes(b64);
         const pcm = new Int16Array(bytes.buffer, 0, bytes.byteLength >> 1);
         if (!pcm.length) return;
 
-        const buffer = audioCtx.createBuffer(1, pcm.length, SAMPLE_RATE);
+        const buffer = playCtx.createBuffer(1, pcm.length, SAMPLE_RATE);
         const channel = buffer.getChannelData(0);
         for (let i = 0; i < pcm.length; i++) channel[i] = pcm[i] / 0x8000;
 
-        const src = audioCtx.createBufferSource();
+        const src = playCtx.createBufferSource();
         src.buffer = buffer;
-        src.connect(outGain);
+        src.connect(playCtx.destination);
 
-        const now = audioCtx.currentTime;
+        // While paused, currentTime is frozen, so chunks simply queue up behind the paused point.
+        const now = playCtx.currentTime;
         if (nextStartTime < now) {
             if (nextStartTime) {
                 // Ran dry mid-reply: the network is jittery, so keep a bigger buffer from now on.
@@ -345,7 +353,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             playing.delete(src);
             if (!playing.size && status === 'speaking') setStatus('listening');
         };
-        if (status === 'listening') setStatus('speaking');
+        if (status === 'listening' && hold === 'none') setStatus('speaking');
     }
 
     function stopPlayback() {
@@ -355,61 +363,73 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         }
         playing.clear();
         nextStartTime = 0;
-        setGain(1);  // sources are gone; the next reply plays at full volume
         if (status === 'speaking') setStatus('listening');
     }
 
-    /* ── LOCAL BARGE-IN ─────────────────────────────────────────── */
+    /* ── BARGE-IN HOLD ──────────────────────────────────────────── */
     function onLocalSpeech() {
         userSpeaking = true;
-        clearTimeout(missedTimer);
-        if (barge !== 'none' || !playing.size) return;
-        // Mute first, decide later: silence also stops the echo canceller from suppressing the user's voice.
-        barge = 'probing';
-        mutedAt = performance.now();
-        setGain(0);
-        log('local speech → mute', { msIntoReply: sinceReply() });
-        probeTimer = setTimeout(endProbe, PROBE_MS);
+        clearTimeout(releaseTimer);
+        if (hold !== 'none' || !playing.size) return;
+        // Pause first, decide later: silence also stops the echo canceller from suppressing the user's voice.
+        pause('probing');
+        probeTimer = setTimeout(() => {
+            if (hold === 'probing' && userSpeaking) {
+                hold = 'user';
+                log('user still talking → keep paused, wait for the server');
+            }
+        }, PROBE_MS);
     }
 
     function onLocalSilence() {
         userSpeaking = false;
-        if (barge === 'probing') {
+        if (hold === 'probing') {
             // The "speech" stopped as soon as the agent went quiet: it was the agent's own echo.
             clearTimeout(probeTimer);
-            barge = 'none';
-            setGain(1);
-            log('went quiet while muted → echo, resume', { msMuted: Math.round(performance.now() - mutedAt) });
-        } else if (barge === 'committed') {
-            missedTimer = setTimeout(missedUser, MISSED_MS);
+            resume('went quiet while paused → echo');
+        } else if (hold === 'user') {
+            releaseAfterGrace();
         }
     }
 
-    function endProbe() {
-        if (barge !== 'probing' || !userSpeaking) return;
-        // Still talking with the agent silent: the user is interrupting. Drop the rest of this reply.
-        barge = 'committed';
-        acceptAudio = false;
-        stopPlayback();
-        log('user still talking → drop reply, wait for answer');
+    function pause(kind) {
+        if (hold === 'none') {
+            heldAt = performance.now();
+            heardUser = false;
+            if (playCtx) playCtx.suspend().catch(() => {});
+            log('pause agent', { reason: kind === 'probing' ? 'local speech' : 'server speech', msIntoReply: sinceReply() });
+            if (status === 'speaking') setStatus('listening');
+        }
+        hold = kind;
     }
 
-    function missedUser() {
-        // The server never reacted to what the user said; tell them instead of leaving dead air.
-        log('no server reaction after user spoke → ask to repeat');
-        barge = 'none';
-        if (status === 'listening') setStatus('listening', 'Sorry, I missed that. Please say it again.');
-    }
-
-    function resetBarge() {
+    function resume(reason) {
+        if (hold === 'none') return;
         clearTimeout(probeTimer);
-        clearTimeout(missedTimer);
-        barge = 'none';
-        mutedAt = 0;
+        clearTimeout(releaseTimer);
+        hold = 'none';
+        log(`resume: ${reason}`, { msPaused: Math.round(performance.now() - heldAt) });
+        heldAt = 0;
+        if (playCtx) playCtx.resume().catch(() => {});
+        if (playing.size) setStatus('speaking');
     }
 
-    function setGain(value) {
-        if (outGain) outGain.gain.setTargetAtTime(value, audioCtx.currentTime, 0.01);
+    function discardHeld(reason) {
+        if (hold === 'none' && !playing.size) return;
+        log(`discard queued audio: ${reason}`, { chunks: playing.size });
+        stopPlayback();
+        resume(reason);
+    }
+
+    /* The user has stopped; if the server has not interrupted by then, it did not treat this as a barge-in. */
+    function releaseAfterGrace() {
+        clearTimeout(releaseTimer);
+        releaseTimer = setTimeout(() => {
+            if (hold === 'none') return;
+            const missed = !heardUser;
+            resume('user stopped, the server kept the reply → continue');
+            if (missed && status !== 'idle') setStatus(status, 'Sorry, I missed that. Please say it again.');
+        }, RELEASE_GRACE_MS);
     }
 
     function sinceReply() {
@@ -433,12 +453,12 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         acceptAudio = true;
         leadS = PLAYBACK_LEAD_S;
         try {
-            // Created inside the click gesture so it is allowed to play sound. Native sample rate:
-            // the mic worklet resamples to 24 kHz, and playback buffers are created at 24 kHz.
+            // Created inside the click gesture so they are allowed to run. The mic context uses the native
+            // rate (the worklet resamples to 24 kHz; Firefox rejects mic sources at other rates). Agent
+            // audio gets its own 24 kHz context so it can be paused without stopping the mic.
             audioCtx = new AudioContext();
-            await audioCtx.resume();
-            outGain = audioCtx.createGain();
-            outGain.connect(audioCtx.destination);
+            playCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+            await Promise.all([audioCtx.resume(), playCtx.resume()]);
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: true },
             });
@@ -489,11 +509,14 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     function teardown() {
         stopMic();
         stopPlayback();
-        if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
-        outGain = null;
-        sessionReady = false;
-        resetBarge();
+        clearTimeout(probeTimer);
+        clearTimeout(releaseTimer);
+        hold = 'none';
+        heldAt = 0;
         userSpeaking = false;
+        if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+        if (playCtx) { playCtx.close().catch(() => {}); playCtx = null; }
+        sessionReady = false;
         turnActive = false;
         pendingResults = [];
         turnGen++;
