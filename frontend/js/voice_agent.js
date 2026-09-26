@@ -686,7 +686,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             audioCtx = new AudioContext();
             playCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
             await Promise.all([audioCtx.resume(), playCtx.resume()]);
-            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=14');
+            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=15');
             if (stale()) return;
             playNode = new AudioWorkletNode(playCtx, 'playback-processor', {
                 numberOfInputs: 0,
@@ -700,7 +700,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             });
             if (stale()) { stream.getTracks().forEach(t => t.stop()); return; }
             micStream = stream;
-            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=14');
+            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=15');
             if (stale()) return;
 
             // Tokens are single-use and short-lived: mint right before connecting.
