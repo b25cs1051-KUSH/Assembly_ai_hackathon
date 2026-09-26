@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -14,7 +14,6 @@ from backend.services.product_service import (
     compare_products,
     get_all_products,
     get_product_by_id,
-    search_products,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -29,31 +28,9 @@ app = FastAPI(title="VoiceCart AI", version="0.1.0")
 # ---------------------------------------------------------------------------
 
 @app.get("/api/products")
-async def api_get_products(
-    q: str | None = Query(None, description="Search query"),
-    brand: str | None = Query(None),
-    min_price: float | None = Query(None),
-    max_price: float | None = Query(None),
-    min_rating: float | None = Query(None),
-    min_wind: int | None = Query(None),
-):
-    """Return all products with optional filtering."""
-    products = get_all_products()
-
-    if q:
-        products = search_products(q)
-    if brand:
-        products = [p for p in products if p["brand"].lower() == brand.lower()]
-    if min_price is not None:
-        products = [p for p in products if p["price"] >= min_price]
-    if max_price is not None:
-        products = [p for p in products if p["price"] <= max_price]
-    if min_rating is not None:
-        products = [p for p in products if p["rating"] >= min_rating]
-    if min_wind is not None:
-        products = [p for p in products if p["specs"]["wind_rating_mph"] >= min_wind]
-
-    return products
+async def api_get_products():
+    """Return the whole catalog; the browser filters it (the grid and the voice agent's search share one rule)."""
+    return get_all_products()
 
 
 @app.get("/api/products/{product_id}")

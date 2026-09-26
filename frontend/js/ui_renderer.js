@@ -32,7 +32,7 @@ const UI = (() => {
         count.textContent = `${products.length} product${products.length > 1 ? 's' : ''}`;
 
         grid.innerHTML = products.map(p => `
-            <article class="product-card" data-id="${p.id}">
+            <article class="product-card" data-id="${p.id}" onclick="App.openDetail('${p.id}')">
                 <div class="card-image-wrap">
                     <img src="${p.image_url}" alt="${p.name}" loading="lazy">
                     <span class="card-brand-badge">${p.brand}</span>
@@ -42,7 +42,7 @@ const UI = (() => {
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     </button>
                 </div>
-                <div class="card-body" onclick="App.openDetail('${p.id}')">
+                <div class="card-body">
                     <div class="card-name">${p.name}</div>
                     <div class="card-meta">
                         <span class="card-price">$${p.price.toFixed(2)}</span>
@@ -58,8 +58,21 @@ const UI = (() => {
     }
 
     /* ── PRODUCT DETAIL DRAWER ──────────────────────────────────── */
-    function renderDetail(product) {
+    /* colors: every color of this umbrella (the product itself included), in catalog order */
+    function renderDetail(product, colors = [product]) {
         const body = $('#detail-body');
+        const colorsHTML = colors.length > 1 ? `
+            <div class="detail-colors">
+                <span class="detail-colors-label">Color: <strong>${product.color}</strong></span>
+                <div class="detail-color-options">
+                    ${colors.map(c => `
+                        <button class="color-option ${c.id === product.id ? 'active' : ''}"
+                                ${c.id === product.id ? 'aria-current="true"' : `onclick="App.openDetail('${c.id}')"`}>
+                            ${c.color} <span class="color-option-price">$${c.price.toFixed(2)}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>` : '';
         const reviewsHTML = (product.reviews || []).map(r => `
             <div class="review-card">
                 <div class="review-header">
@@ -72,14 +85,19 @@ const UI = (() => {
         `).join('');
 
         body.innerHTML = `
-            <img class="detail-image" src="${product.image_url}" alt="${product.name}">
             <div class="detail-content">
-                <div class="detail-brand">${product.brand}</div>
-                <h2 class="detail-name">${product.name}</h2>
-                <div class="detail-price-row">
-                    <span class="detail-price">$${product.price.toFixed(2)}</span>
-                    <span class="detail-rating"><span class="star-icon">★</span> ${product.rating} · ${product.review_count} reviews</span>
+                <div class="detail-head">
+                    <img class="detail-thumb" src="${product.image_url}" alt="${product.name}">
+                    <div class="detail-head-text">
+                        <div class="detail-brand">${product.brand}</div>
+                        <h2 class="detail-name">${product.name}</h2>
+                        <div class="detail-price-row">
+                            <span class="detail-price">$${product.price.toFixed(2)}</span>
+                            <span class="detail-rating"><span class="star-icon">★</span> ${product.rating} · ${product.review_count} reviews</span>
+                        </div>
+                    </div>
                 </div>
+                ${colorsHTML}
                 <p class="detail-desc">${product.description}</p>
                 <button class="btn-primary detail-add-btn" onclick="App.addToCart('${product.id}')">Add to Cart</button>
 
@@ -202,13 +220,8 @@ const UI = (() => {
             `;
         }).join('');
 
-        /* Summary */
-        const subtotal = cart.reduce((sum, item) => {
-            const p = products.find(pr => pr.id === item.id);
-            return sum + (p ? p.price * item.qty : 0);
-        }, 0);
-        const tax = subtotal * 0.08;
-        const total = subtotal + tax;
+        /* Summary: the same numbers the voice agent reads out */
+        const { subtotal, tax, total } = App.getCartSummary();
 
         $('#cart-summary').innerHTML = `
             <div class="cart-summary-row"><span>Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
@@ -221,68 +234,29 @@ const UI = (() => {
     /* ── CHECKOUT ───────────────────────────────────────────────── */
     function renderCheckout(cart, products) {
         const body = $('#checkout-body');
-
-        const itemRows = cart.map(item => {
-            const p = products.find(pr => pr.id === item.id);
-            if (!p) return '';
-            return `<div class="checkout-item-row"><span>${p.name} × ${item.qty}</span><span>$${(p.price * item.qty).toFixed(2)}</span></div>`;
-        }).join('');
-
-        const subtotal = cart.reduce((s, i) => {
-            const p = products.find(pr => pr.id === i.id);
-            return s + (p ? p.price * i.qty : 0);
-        }, 0);
-        const tax = subtotal * 0.08;
-        const total = subtotal + tax;
+        const lines = cart.map(item => ({ item, p: products.find(pr => pr.id === item.id) })).filter(l => l.p);
+        const { subtotal, tax, total } = App.getCartSummary();
 
         body.innerHTML = `
-            <div class="checkout-grid">
-                <div class="checkout-form-section">
-                    <h3>Shipping Address</h3>
-                    <div class="form-row">
-                        <div class="form-field">
-                            <label for="co-first">First Name</label>
-                            <input id="co-first" type="text" placeholder="John">
+            <div class="checkout-items">
+                ${lines.map(({ item, p }) => `
+                    <div class="checkout-item">
+                        <img class="checkout-thumb" src="${p.image_url}" alt="${p.name}">
+                        <div>
+                            <div class="checkout-item-name">${p.name}</div>
+                            <div class="checkout-item-qty">Qty ${item.qty} · $${p.price.toFixed(2)} each</div>
                         </div>
-                        <div class="form-field">
-                            <label for="co-last">Last Name</label>
-                            <input id="co-last" type="text" placeholder="Doe">
-                        </div>
+                        <div class="checkout-item-total">$${(p.price * item.qty).toFixed(2)}</div>
                     </div>
-                    <div class="form-row full">
-                        <div class="form-field">
-                            <label for="co-email">Email</label>
-                            <input id="co-email" type="email" placeholder="john@example.com">
-                        </div>
-                    </div>
-                    <div class="form-row full">
-                        <div class="form-field">
-                            <label for="co-address">Address</label>
-                            <input id="co-address" type="text" placeholder="123 Main Street">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-field">
-                            <label for="co-city">City</label>
-                            <input id="co-city" type="text" placeholder="San Francisco">
-                        </div>
-                        <div class="form-field">
-                            <label for="co-zip">ZIP Code</label>
-                            <input id="co-zip" type="text" placeholder="94102">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="checkout-order-summary">
-                    <h3>Order Summary</h3>
-                    ${itemRows}
-                    <div class="checkout-item-row" style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border); font-weight:700; color:var(--text-primary);">
-                        <span>Total (incl. tax)</span><span>$${total.toFixed(2)}</span>
-                    </div>
-                </div>
-
-                <button class="btn-primary btn-full" onclick="App.placeOrder()">Place Order — $${total.toFixed(2)}</button>
+                `).join('')}
             </div>
+            <div class="checkout-totals">
+                <div class="checkout-item-row"><span>Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
+                <div class="checkout-item-row"><span>Tax (8%)</span><span>$${tax.toFixed(2)}</span></div>
+                <div class="checkout-item-row"><span>Shipping</span><span class="free-shipping">Free</span></div>
+                <div class="checkout-item-row"><span>Total</span><span>$${total.toFixed(2)}</span></div>
+            </div>
+            <button class="btn-primary btn-full" onclick="App.placeOrder()">Place order · $${total.toFixed(2)}</button>
         `;
     }
 
@@ -379,6 +353,84 @@ const UI = (() => {
         document.body.style.overflow = '';
     }
 
+    /* ── AGENT PANEL: conversation log and "Try saying" guide ───── */
+    function escapeText(t) {
+        const d = document.createElement('div');
+        d.textContent = t;
+        return d.innerHTML;
+    }
+
+    /* Adds a finished line above the turn in progress; role is 'user', 'agent' or 'note' */
+    function logLine(role, text) {
+        const log = $('#agent-log');
+        if (!log || !text) return;
+        const line = document.createElement('p');
+        line.className = `log-line log-${role}`;
+        if (role === 'note') line.className = 'log-note';
+        line.textContent = text;
+        log.insertBefore(line, log.querySelector('.voice-transcript'));
+        log.scrollTop = log.scrollHeight;
+    }
+
+    /* steps: [{ phrase, feature }]; read-only, the user says the phrases out loud */
+    function renderGuide(steps) {
+        const list = $('#guide-steps');
+        if (!list) return;
+        list.innerHTML = steps.map((st, i) => `
+            <li class="guide-step" data-step="${i}">
+                <span class="guide-num" data-num="${i + 1}"></span>
+                <span>
+                    <span class="guide-phrase">“${escapeText(st.phrase)}”</span>
+                    <span class="guide-feature">${escapeText(st.feature)}</span>
+                </span>
+            </li>
+        `).join('');
+        // Open on wide screens, where the sidebar has room; on phones it stays a tap away
+        if (window.matchMedia('(min-width: 900px)').matches) $('#agent-guide').open = true;
+    }
+
+    /* ── CONFETTI ───────────────────────────────────────────────── */
+    function confetti() {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const canvas = document.createElement('canvas');
+        canvas.className = 'confetti-canvas';
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width = window.innerWidth;
+        const h = canvas.height = window.innerHeight;
+        const colors = ['#0a84ff', '#bf5af2', '#30d158', '#ff9f0a', '#ff453a', '#f5f5f7'];
+        const pieces = Array.from({ length: 160 }, () => ({
+            x: w / 2 + (Math.random() - 0.5) * 120,
+            y: h * 0.45,
+            vx: (Math.random() - 0.5) * 14,
+            vy: -(6 + Math.random() * 12),
+            size: 5 + Math.random() * 6,
+            spin: Math.random() * Math.PI,
+            color: colors[Math.floor(Math.random() * colors.length)],
+        }));
+        const start = performance.now();
+        (function frame(now) {
+            const t = now - start;
+            ctx.clearRect(0, 0, w, h);
+            for (const c of pieces) {
+                c.vy += 0.35;            // gravity
+                c.vx *= 0.99;
+                c.x += c.vx;
+                c.y += c.vy;
+                c.spin += 0.2;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, 1 - t / 2600);
+                ctx.translate(c.x, c.y);
+                ctx.rotate(c.spin);
+                ctx.fillStyle = c.color;
+                ctx.fillRect(-c.size / 2, -c.size / 4, c.size, c.size / 2);
+                ctx.restore();
+            }
+            if (t < 2600) requestAnimationFrame(frame);
+            else canvas.remove();
+        })(start);
+    }
+
     /* ── PUBLIC API ─────────────────────────────────────────────── */
     return {
         renderGrid,
@@ -392,6 +444,9 @@ const UI = (() => {
         highlightCard,
         showToolChip,
         hideToolChip,
+        logLine,
+        renderGuide,
+        confetti,
         toast,
         openPanel,
         closePanel,

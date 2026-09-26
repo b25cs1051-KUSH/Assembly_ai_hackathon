@@ -7,24 +7,54 @@ const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
 const products = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/products.json'), 'utf8'));
-const text = p => `${p.name} ${p.brand} ${p.description} ${p.specs.frame_material}`.toLowerCase();
+const text = p => `${p.name} ${p.brand} ${p.color} ${p.color_family} ${p.description} ${p.specs.frame_material}`.toLowerCase();
+// Same rule as app.js colorMatches
+function colorMatches(p, spoken) {
+    const norm = t => String(t || '').toLowerCase().replace(/\bgrey\b/g, 'gray');
+    const words = norm(spoken).split(/[^a-z]+/).filter(Boolean);
+    const haystack = `${norm(p.color)} ${norm(p.color_family)}`;
+    return words.every(w => haystack.includes(w));
+}
 
-let filtered = [];
+let filtered = products;
 let opened = null;
 let outlined = 'none';
+let compareIds = [];
+let compareOpen = false;
+let cart = [];              // { id, qty }
+let checkoutOpen = false;
 const App = {
     getProducts: () => products,
+    getVisible: () => filtered,
     getBrands: () => [...new Set(products.map(p => p.brand))].sort((a, b) => a.localeCompare(b)),
     sortOptions: ['relevance'],
-    closeAllPanels() {},
-    setFilters(f) {  // same word rule as app.js applyFilters
+    closeAllPanels() { checkoutOpen = false; },
+    colorMatches,
+    setFilters(f) {  // same word and color rules as app.js applyFilters
         const words = (f.search || '').toLowerCase().split(/\s+/).filter(Boolean);
-        filtered = products.filter(p => words.every(w => text(p).includes(w)));
+        filtered = products.filter(p => words.every(w => text(p).includes(w)) && (!f.color || colorMatches(p, f.color)));
         return filtered;
     },
     openDetail(id) { opened = id; },
-    compareProducts() {},
-    getCartSummary: () => ({ items: [], itemCount: 0, subtotal: 0, tax: 0, total: 0 }),
+    compareProducts(ids) { compareIds = ids.map(String); compareOpen = compareIds.length >= 2; },
+    getCompareIds: () => [...compareIds],
+    addToCart(id, qty = 1) {
+        const item = cart.find(i => i.id === id);
+        if (item) item.qty += qty; else cart.push({ id, qty });
+    },
+    removeFromCart(id) { cart = cart.filter(i => i.id !== id); },
+    updateQty(id, qty) { const item = cart.find(i => i.id === id); if (item) item.qty = qty; },
+    openCheckout() { checkoutOpen = true; },
+    isCheckoutOpen: () => checkoutOpen,
+    placeOrder() { cart = []; checkoutOpen = false; return 'VC-TEST'; },
+    getCartSummary() {
+        const items = cart.map(i => {
+            const p = products.find(x => x.id === i.id);
+            return { id: i.id, name: p.name, qty: i.qty, lineTotal: p.price * i.qty };
+        });
+        const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
+        return { items, itemCount: items.reduce((s, i) => s + i.qty, 0), subtotal, tax: subtotal * 0.08, total: subtotal * 1.08 };
+    },
 };
 const UI = { markPositions() {}, highlightCard(id) { outlined = id; }, showToolChip() {}, hideToolChip() {} };
 const ctx = { App, UI, console, document: { getElementById: () => ({ scrollIntoView() {} }) } };
@@ -40,13 +70,16 @@ function check(name, ok, detail) {
 async function error(p) { try { await p; return null; } catch (e) { return e.message; } }
 
 (async () => {
+    const beforeSearch = await run('show_product', { position: 2 });
+    check('before any search, positions count through the grid on screen', beforeSearch.id === products[1].id, `got ${beforeSearch.id}`);
+
     const yellowIds = products.filter(p => text(p).includes('yellow')).map(p => p.id);
     const blueIds = products.filter(p => text(p).includes('blue')).map(p => p.id);
 
     const y = await run('search_products', { query: 'yellow umbrellas' });
     check('"yellow umbrellas" finds the yellow products', JSON.stringify(y.results.map(r => r.id)) === JSON.stringify(yellowIds.slice(0, 5)) && y.total_matches === yellowIds.length,
         `want ${yellowIds}, got ${y.results.map(r => r.id)} (query_used "${y.query_used}")`);
-    check('query_used is the cleaned query', y.query_used === 'yellow', `got "${y.query_used}"`);
+    check('a color word in the query becomes the color filter', y.query_used === '' && y.color_used === 'yellow', `got query "${y.query_used}", color "${y.color_used}"`);
 
     const s = await run('search_products', { query: 'show me some umbrellas please' });
     check('a query of only filler words is no text filter', s.total_matches === products.length, `got ${s.total_matches}`);
@@ -62,6 +95,66 @@ async function error(p) { try { await p; return null; } catch (e) { return e.mes
 
     const oob = await error(run('show_product', { position: blueIds.length + 1 }));
     check('an out-of-range position gives a specific error', oob && oob.includes(`the latest search has ${blueIds.length}`), `got ${oob}`);
+    check('the out-of-range error tells the agent to offer the last one',
+        oob && oob.includes(`number ${blueIds.length + 1} is out of range`) && oob.includes(`number ${blueIds.length}, the last one`), `got ${oob}`);
+
+    // Compare: remove by column, add, and the modal closing below two
+    await run('search_products', {});
+    await run('compare_products', { positions: [1, 2, 3] });
+    const [c1, c2, c3] = products.slice(0, 3).map(p => p.id);
+    const removed = await run('update_compare', { action: 'remove', columns: [2] });
+    check('update_compare remove by column takes out that column', JSON.stringify(removed.products.map(p => p.id)) === JSON.stringify([c1, c3]) && compareOpen,
+        `got ${removed.products.map(p => p.id)}, open ${compareOpen}`);
+    check('compare results carry column numbers', removed.products.map(p => p.column).join() === '1,2', `got ${removed.products.map(p => p.column)}`);
+    const added = await run('update_compare', { action: 'add', positions: [2] });
+    check('update_compare add puts one back', added.products.length === 3 && compareIds.includes(c2), `got ${compareIds}`);
+    const full = await error(run('update_compare', { action: 'add', positions: [4] }));
+    check('adding a fourth gives a specific error', full && full.includes('At most 3'), `got ${full}`);
+    const removedById = await run('update_compare', { action: 'remove', product_ids: [c1, c2] });
+    check('removing down to one closes the comparison and says so', removedById.products.length === 1 && !compareOpen && /closed/.test(removedById.note),
+        `got ${removedById.products.length}, open ${compareOpen}, note ${removedById.note}`);
+    const notIn = await error(run('update_compare', { action: 'remove', product_ids: [c1] }));
+    check('removing a product that is not compared gives a specific error', notIn && notIn.includes('not in the comparison'), `got ${notIn}`);
+    await run('update_compare', { action: 'clear' });
+    check('clear empties the comparison', compareIds.length === 0 && !compareOpen, `got ${compareIds}`);
+
+    // Checkout of a named umbrella: added to the cart, then checkout opens, then the order can be placed
+    const emptyCheckout = await error(run('checkout', {}));
+    check('checkout with an empty cart and no product gives a specific error', emptyCheckout && emptyCheckout.includes('cart is empty'), `got ${emptyCheckout}`);
+    const co = await run('checkout', { position: 1 });
+    check('checkout with a position adds it and opens checkout',
+        co.items.length === 1 && co.items[0].id === c1 && co.added_to_cart && checkoutOpen, `got ${JSON.stringify(co)}`);
+    const again = await run('checkout', { position: 1 });
+    check('checkout of something already in the cart does not add it twice', again.items[0].quantity === 1 && again.added_to_cart === null,
+        `got ${JSON.stringify(again.items)}`);
+    const placed = await run('place_order', { user_confirmed: true });
+    check('place_order works right after checkout', placed.order_number === 'VC-TEST', `got ${JSON.stringify(placed)}`);
+
+    const setQty = await run('update_cart', { action: 'set_quantity', position: 2, quantity: 2 });
+    check('set_quantity on a product not in the cart adds that many', setQty.items.length === 1 && setQty.items[0].quantity === 2,
+        `got ${JSON.stringify(setQty.items)}`);
+    cart = [];
+
+    // Colors: each of the 15 umbrellas comes in one color, so asking for another gives a specific error
+    const tumella = products.find(p => p.model === 'TUMELLA Windproof Travel Umbrella');
+    const inRed = await error(run('show_product', { product_id: tumella.id, color: 'red' }));
+    check('a color the umbrella does not come in says which color it comes in',
+        inRed && inRed.includes('only comes in Yellow'), `got ${inRed}`);
+    const inYellow = await run('show_product', { product_id: tumella.id, color: 'yellow' });
+    check('asking for the color it comes in opens that umbrella', inYellow.id === tumella.id && opened === tumella.id,
+        `got ${inYellow.id} (${inYellow.color})`);
+    check('details list no other colors', Array.isArray(inYellow.other_colors) && inYellow.other_colors.length === 0,
+        `got ${JSON.stringify(inYellow.other_colors)}`);
+    const pink = await run('search_products', { color: 'pink' });
+    check('search by color returns only that color', pink.total_matches > 0 && filtered.every(p => p.color_family === 'Pink' || /pink/i.test(p.color)),
+        `got ${filtered.map(p => p.color).join(', ')}`);
+    check('search results list other colors', Array.isArray(pink.results[0].other_colors), `got ${JSON.stringify(pink.results[0])}`);
+    const redCart = await error(run('update_cart', { action: 'add', product_id: tumella.id, color: 'red' }));
+    check('update_cart in a color it does not come in gives the same error', redCart && redCart.includes('only comes in Yellow'),
+        `got ${redCart}`);
+    cart = [];
+
+    await run('search_products', { query: 'blue ones' });
 
     if (blueIds.length >= 2) {
         const cmp = await run('compare_products', { positions: [1, 2] });

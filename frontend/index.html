@@ -6,10 +6,10 @@
     <title>VoiceCart AI — Premium Umbrellas</title>
     <meta name="description" content="Voice-powered premium umbrella store. Explore handpicked umbrellas from top brands.">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a84ff' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M2 12a10 10 0 0 1 20 0z'/%3E%3Cpath d='M12 12v7a2 2 0 0 0 4 0'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=10">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -66,6 +66,13 @@
                 </select>
             </div>
             <div class="filter-group">
+                <label for="filter-color">Color</label>
+                <select id="filter-color">
+                    <option value="">All Colors</option>
+                    <!-- color families are filled from the catalog in app.js -->
+                </select>
+            </div>
+            <div class="filter-group">
                 <label for="filter-price">Max Price</label>
                 <!-- max/value are set from the catalog in app.js -->
                 <input type="range" id="filter-price" min="0" max="100" value="100" step="5">
@@ -94,18 +101,22 @@
     <!-- ============================================================ -->
     <main id="main-view">
         <!-- Hero -->
-        <section class="hero" id="hero-section">
-            <div class="hero-content">
-                <p class="hero-eyebrow">Premium Umbrella Collection</p>
-                <h1>Engineered for<br><span class="hero-accent">Every Storm</span></h1>
-                <p class="hero-sub">Handpicked umbrellas from the world's finest makers.<br>Built to last. Designed to inspire.</p>
-                <div class="hero-actions">
-                    <!-- Browsers only allow mic and sound after a click, so the voice session starts here -->
-                    <button class="btn-primary" id="hero-voice-btn">Start shopping with voice</button>
-                    <button class="btn-secondary" id="hero-browse-btn">Browse Collection</button>
-                </div>
+        <section class="hero-strip" id="hero-section">
+            <p class="hero-line">
+                <span class="pill">Voice-first shopping &#9730;</span>
+                <span class="hero-tag">Engineered for <span class="hero-accent">every storm</span></span>
+            </p>
+            <div class="hero-actions-strip">
+                <span class="hero-deco" aria-hidden="true">&#9730;</span>
+                <!-- Browsers only allow mic and sound after a click, so the voice session starts here -->
+                <button class="btn-primary hero-voice-btn" id="hero-voice-btn">Start shopping with voice</button>
             </div>
         </section>
+
+        <!-- Feature ticker (decorative; the same list twice so it loops without a jump) -->
+        <div class="marquee" aria-hidden="true">
+            <div class="marquee-track"><span>Windproof</span><span class="marquee-dot">&#9730;</span><span>Auto-open</span><span class="marquee-dot">&#9730;</span><span>Travel size</span><span class="marquee-dot">&#9730;</span><span>Golf</span><span class="marquee-dot">&#9730;</span><span>Real reviews</span><span class="marquee-dot">&#9730;</span><span>Just ask out loud</span><span class="marquee-dot">&#9730;</span><span>Compare by voice</span><span class="marquee-dot">&#9730;</span><span>Hands-free checkout</span><span class="marquee-dot">&#9730;</span><span>Windproof</span><span class="marquee-dot">&#9730;</span><span>Auto-open</span><span class="marquee-dot">&#9730;</span><span>Travel size</span><span class="marquee-dot">&#9730;</span><span>Golf</span><span class="marquee-dot">&#9730;</span><span>Real reviews</span><span class="marquee-dot">&#9730;</span><span>Just ask out loud</span><span class="marquee-dot">&#9730;</span><span>Compare by voice</span><span class="marquee-dot">&#9730;</span><span>Hands-free checkout</span><span class="marquee-dot">&#9730;</span></div>
+        </div>
 
         <!-- Product Grid -->
         <section class="products-section" id="products-section">
@@ -123,6 +134,10 @@
             </div>
         </section>
     </main>
+
+    <footer class="site-footer">
+        <p><strong>VoiceCart AI</strong> · Built with the AssemblyAI Voice Agent API: speech-to-text, turn detection, barge-in, text-to-speech and tool calling.</p>
+    </footer>
 
     <!-- ============================================================ -->
     <!-- PRODUCT DETAIL DRAWER                                        -->
@@ -198,8 +213,8 @@
             <div class="confirm-check">
                 <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             </div>
-            <h2 style="margin-top:1.5rem;">Order Placed!</h2>
-            <p class="text-secondary" style="margin-top:.5rem;">Thank you for your purchase. Your premium umbrellas are on their way.</p>
+            <h2 style="margin-top:1.5rem;" id="confirm-title">Order Placed!</h2>
+            <p class="text-secondary" style="margin-top:.5rem;" id="confirm-message">Thank you for your purchase. Your premium umbrellas are on their way.</p>
             <p class="text-secondary" id="confirm-order-number" style="margin-top:.5rem;"></p>
             <button class="btn-primary" id="confirm-done" style="margin-top:2rem;">Continue Shopping</button>
         </div>
@@ -213,11 +228,24 @@
     <!-- ============================================================ -->
     <!-- VOICE DOCK                                                   -->
     <!-- ============================================================ -->
-    <div class="voice-dock" id="voice-dock" data-status="idle">
-        <div class="voice-transcript" aria-live="polite">
-            <p class="voice-line voice-user" id="voice-user"></p>
-            <p class="voice-line voice-agent" id="voice-agent"></p>
+    <!-- Voice agent panel: a fixed left sidebar on wide screens, a bottom dock on phones -->
+    <aside class="voice-dock agent-panel" id="voice-dock" data-status="idle" aria-label="Voice shopping assistant">
+        <div class="agent-head">
+            <span class="agent-title">VoiceCart Assistant</span>
+            <span class="agent-state" aria-hidden="true"></span>
         </div>
+        <div class="agent-log" id="agent-log" aria-live="polite">
+            <p class="agent-log-empty">Press the mic and tell me what kind of umbrella you need.</p>
+            <!-- Finished lines are added here; the two lines below are the turn in progress -->
+            <div class="voice-transcript">
+                <p class="voice-line voice-user" id="voice-user"></p>
+                <p class="voice-line voice-agent" id="voice-agent"></p>
+            </div>
+        </div>
+        <details class="agent-guide" id="agent-guide">
+            <summary>Try saying</summary>
+            <ol class="guide-steps" id="guide-steps"></ol>
+        </details>
         <div class="voice-bar">
             <button class="voice-btn" id="voice-btn" aria-pressed="false" aria-label="Start voice shopping">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -228,15 +256,24 @@
             </button>
             <span class="voice-status" id="voice-status">Tap to shop by voice</span>
         </div>
-    </div>
+    </aside>
 
     <!-- ============================================================ -->
     <!-- SCRIPTS                                                      -->
     <!-- ============================================================ -->
-    <script src="js/ui_renderer.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/agent_tools.js"></script>
-    <script src="js/voice_agent.js"></script>
+    <script src="js/ui_renderer.js?v=10"></script>
+    <script src="js/app.js?v=10"></script>
+    <script src="js/agent_tools.js?v=10"></script>
+    <script src="js/voice_agent.js?v=10"></script>
+    <script>
+        // Header: transparent at the top of the page, solid with a dark rule once scrolled
+        (() => {
+            const header = document.getElementById('site-header');
+            const update = () => header.classList.toggle('scrolled', window.scrollY > 8);
+            window.addEventListener('scroll', update, { passive: true });
+            update();
+        })();
+    </script>
 
 </body>
 </html>

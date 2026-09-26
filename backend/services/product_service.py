@@ -6,13 +6,17 @@ from pathlib import Path
 DATA_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "products.json"
 
 _cache: list[dict] | None = None
+_cache_mtime: float | None = None
 
 
 def load_products() -> list[dict]:
-    global _cache
-    if _cache is None:
+    """The catalog, re-read whenever products.json changes so a running server never serves stale data."""
+    global _cache, _cache_mtime
+    mtime = DATA_FILE.stat().st_mtime
+    if _cache is None or mtime != _cache_mtime:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             _cache = json.load(f)
+        _cache_mtime = mtime
     return _cache
 
 
@@ -27,21 +31,6 @@ def get_product_by_id(product_id: str) -> dict | None:
     return None
 
 
-def search_products(query: str) -> list[dict]:
-    q = query.lower()
-    results = []
-    for p in load_products():
-        searchable = " ".join([
-            p["name"],
-            p["brand"],
-            p["description"],
-            p["specs"]["frame_material"],
-        ]).lower()
-        if q in searchable:
-            results.append(p)
-    return results
-
-
 def compare_products(ids: list[str]) -> dict:
     """Return a structured comparison matrix for the given product IDs."""
     products = [get_product_by_id(pid) for pid in ids]
@@ -54,6 +43,7 @@ def compare_products(ids: list[str]) -> dict:
         ("Price", lambda p: f"${p['price']:.2f}"),
         ("Rating", lambda p: f"{p['rating']} ⭐ ({p['review_count']} reviews)"),
         ("Brand", lambda p: p["brand"]),
+        ("Color", lambda p: p.get("color", "")),
         ("Wind Resistance", lambda p: f"{p['specs']['wind_rating_mph']} mph"),
         ("Weight", lambda p: f"{p['specs']['weight_oz']} oz"),
         ("Canopy Size", lambda p: f"{p['specs']['canopy_size_inches']}\""),

@@ -42,16 +42,21 @@ const VoiceAgent = (() => {
     }
 
     const SYSTEM_PROMPT = `You are the voice shopping assistant for VoiceCart, an online umbrella store.
-You are talking out loud, so never use markdown, lists, emojis or symbols. Keep replies short, usually one or two sentences. When walking through search results you may use up to five short sentences.
+You are talking out loud, so never use markdown, lists, emojis or symbols.
+Make each answer exactly as long as the question needs. If one sentence fully answers it, say one sentence. If the user asks about several umbrellas, a comparison or the details of a product, cover each thing they asked about in a short, clear sentence. Keep it simple and friendly, and stop once the question is answered: do not pad, repeat yourself, or read out everything on the screen.
 Round prices when speaking, for example "about thirty dollars".
 Be warm, friendly and humble, like a helpful friend in the store. If you get something wrong, apologise briefly and correct yourself.
 Whenever the user describes what they want or changes a requirement, call search_products. It updates the products on the user's screen. Each call replaces the previous filters, so include every requirement the user still wants.
 Only talk about products, prices, specs and ratings that a tool returned. Never invent them. If you do not know something, say so.
-After a search, say how many umbrellas matched, then walk through the top three by position, one short sentence each with its best point and its main drawback from the tool results, then ask which one interests them. Introduce each one by position and brand, for example "The first one, the TUMELLA, …".
+After a search, say how many matched and introduce the top results by position and brand, each with the point that matters most for what the user asked, for example "Two match. The first one, the TUMELLA, handles the strongest wind, and the second one, the SoulRain, is a classic wooden stick umbrella." Cover up to three results this way, then ask which one interests them.
 Results are numbered by position, so "the second one" means position two of the latest search. When the user refers to a result by its number or order, pass its position from the latest search; never guess an id. Positions from earlier searches no longer apply.
-When the user asks for more about a product or what people say, call show_product. When they want to compare or choose, call compare_products with two or three ids.
-Use update_cart to add, remove or change quantities. When the user wants to pay, call checkout, read the total, and ask them to confirm. Only call place_order with user_confirmed true after they clearly say yes. If they say no, do not place it.
-If nothing matches, say so and offer to relax one requirement, such as the price.`;
+Every position from 1 to total_matches is valid, even the ones not listed in the search result, so always call the tool with the number the user said. If the tool says the number is out of range, tell the user how many umbrellas are in the results, that their number is out of range, and ask if they want the last one instead.
+When the user asks for more about a product or what people say, call show_product. When they want to compare or choose, call compare_products with two or three positions.
+Each umbrella lists its color, and other_colors if it comes in more than one. When the user asks to see an umbrella in a different color, call show_product with that umbrella's position or id and the color. To buy it in a color, pass the color to update_cart or checkout. For "a red umbrella" in general, call search_products with color. If a tool says the color does not exist, tell the user which colors it comes in.
+To take an umbrella out of the comparison, add one to it, or close it, call update_compare. In the comparison, "the second one" means the second column, so pass columns for removals.
+Use update_cart to add, remove or change quantities. When the user wants to pay, call checkout, say what is in the order and the total, and ask them to confirm. If they ask to check out or buy a specific umbrella, pass it to checkout, which adds it to the cart and opens checkout in one step. Only call place_order with user_confirmed true after they clearly say yes. If they say no, do not place it.
+If nothing matches, say so and offer to relax one requirement, such as the price.
+You remember this whole visit. If you are given the earlier conversation and what is on screen, continue from there and never start over.`;
 
     const GREETING = "Hi, I'm your VoiceCart shopping assistant. What kind of umbrella are you looking for today?";
 
@@ -117,6 +122,13 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     let pendingHighlights = [];        // { id, atS }
     let seenMentions = new Set();      // character offsets already scheduled in this reply
 
+    // Memory for the whole page visit: kept across voice sessions, lost only on reload.
+    const HISTORY_LINES = 40;
+    const history = [];                // { role: 'user' | 'assistant', text }
+    let returning = false;             // this session continues an earlier one in the same visit
+    let sessionsStarted = 0;
+    let userSpokeThisSession = false;
+
     // Tool results may only be sent once the current turn is over (reply.done). Results from a
     // reply the user interrupted are thrown away; turnGen marks which results are still valid.
     let turnActive = false;
@@ -170,7 +182,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 type: 'session.update',
                 session: {
                     system_prompt: SYSTEM_PROMPT,
-                    greeting: GREETING,
+                    greeting: returning ? returnGreeting() : GREETING,
                     tools: AgentTools.definitions(),
                     input: {
                         keyterms: AgentTools.keyterms(),
@@ -207,6 +219,11 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 sessionReady = true;
                 startMic();
                 setStatus('listening');
+                if (returning) {
+                    // A new session knows nothing: give it this visit's conversation and what is on screen now.
+                    send({ type: 'conversation.message', role: 'system', content: memoryContext() });
+                    log('memory injected', { lines: history.length });
+                }
                 break;
 
             case 'input.speech.started':
@@ -231,8 +248,15 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             case 'transcript.user.delta':
             case 'transcript.user':
                 heardUser = true;
-                if (evt.type === 'transcript.user') ackThisTurn = false;  // a new user turn
-                if (evt.text) showUser(evt.text);
+                if (evt.type === 'transcript.user') {
+                    ackThisTurn = false;  // a new user turn
+                    userSpokeThisSession = true;
+                    remember('user', evt.text);
+                    UI.logLine('user', evt.text);
+                    showUser('');
+                } else if (evt.text) {
+                    showUser(evt.text);
+                }
                 break;
 
             case 'reply.started':
@@ -264,7 +288,9 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 break;
 
             case 'transcript.agent':
-                showAgent(evt.text);
+                remember('assistant', evt.text);
+                UI.logLine('agent', evt.text);
+                showAgent('');
                 break;
 
             case 'reply.done':
@@ -500,7 +526,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         pushAudio(seg, line.samples.slice());  // slice: the transfer detaches the buffer
         playNode.port.postMessage({ type: 'end', seg });
         ackThisTurn = true;
-        showAgent(line.text);
+        UI.logLine('agent', line.text);
         log('acknowledgement', { tool, text: line.text, msIntoReply: sinceReply() });
     }
 
@@ -579,6 +605,57 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         return replyStartedAt ? Math.round(performance.now() - replyStartedAt) : null;
     }
 
+    /* ── MEMORY ACROSS SESSIONS ─────────────────────────────────── */
+    function remember(role, text) {
+        if (!text) return;
+        history.push({ role, text });
+        if (history.length > HISTORY_LINES) history.splice(0, history.length - HISTORY_LINES);
+    }
+
+    function returnGreeting() {
+        const n = App.getCartSummary().itemCount;
+        if (n) return `Welcome back! You still have ${n === 1 ? 'one umbrella' : `${n} umbrellas`} in your cart.`;
+        return 'Welcome back! Where were we?';
+    }
+
+    /* This visit's conversation and what is on screen now, for a session that starts without either */
+    function memoryContext() {
+        const products = App.getProducts();
+        const name = id => (products.find(p => p.id === id) || {}).name || `product ${id}`;
+        const results = AgentTools.latestResults().slice(0, 5).map((id, i) => `${i + 1}. ${name(id)} (id ${id})`);
+        const cart = App.getCartSummary();
+        const view = App.getOpenView();
+        const viewText = {
+            detail: `the detail page of ${name(view.id)} (id ${view.id})`,
+            compare: `a comparison of ${(view.ids || []).map(name).join(' and ')}`,
+            checkout: 'the checkout summary',
+            cart: 'the cart',
+            grid: 'the product grid',
+        }[view.view];
+        const lines = history.map(h => `${h.role === 'user' ? 'User' : 'You'}: ${h.text}`);
+        return [
+            'The voice session was restarted, but this is the same shopping visit. Continue from where you left off and do not greet the user again.',
+            'Earlier in this visit:',
+            lines.length ? lines.join('\n') : '(nothing said yet)',
+            'Right now on screen:',
+            `- Latest search results, by position: ${results.length ? results.join('; ') : 'none'}.`,
+            `- Open view: ${viewText}.`,
+            `- Cart: ${cart.items.length ? `${cart.items.map(i => `${i.qty} × ${i.name}`).join(', ')}; total $${cart.total}` : 'empty'}.`,
+        ].join('\n');
+    }
+
+    /* ── "TRY SAYING" GUIDE ─────────────────────────────────────── */
+    // A reference script from search to checkout for judges to say out loud.
+    const GUIDE = [
+        { phrase: 'I need a windproof umbrella under 30 dollars', feature: 'Search by voice: filters and grid update, top results get numbers' },
+        { phrase: 'Wait, which one is the lightest?', feature: 'Say it while the agent is talking: it stops mid-sentence (barge-in)' },
+        { phrase: 'Compare the first two', feature: 'Side-by-side comparison, by position' },
+        { phrase: 'What do people complain about with the first one?', feature: 'Answers from real reviews, never invented' },
+        { phrase: 'Add it to my cart. Actually, make it two', feature: 'Cart updates by voice' },
+        { phrase: 'Check out', feature: 'Says the total and asks you to confirm; then say "Yes, place it"' },
+        { phrase: "What's in my cart?", feature: 'Stop the mic, start it again, then ask: it remembers the visit' },
+    ];
+
     /* ── LIFECYCLE ──────────────────────────────────────────────── */
     function friendlyError(err) {
         if (err && err.name === 'NotAllowedError') return 'Microphone permission was denied.';
@@ -596,6 +673,12 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         acceptAudio = true;
         speechRms = SPEECH_RMS;
         ackThisTurn = false;
+        // A later voice session in the same visit, after something was said, bought or searched, continues
+        // the earlier one. The first session never does, even if the user clicked around before it.
+        returning = sessionsStarted > 0
+            && (history.length > 0 || App.getCartSummary().itemCount > 0 || AgentTools.latestResults().length > 0);
+        sessionsStarted++;
+        userSpokeThisSession = false;
         try {
             // Created inside the click gesture so they are allowed to run. The mic context uses the native
             // rate (the worklet resamples to 24 kHz; Firefox rejects mic sources at other rates). Agent
@@ -603,7 +686,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             audioCtx = new AudioContext();
             playCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
             await Promise.all([audioCtx.resume(), playCtx.resume()]);
-            await playCtx.audioWorklet.addModule('js/playback_worklet.js');
+            await playCtx.audioWorklet.addModule('js/playback_worklet.js?v=10');
             if (stale()) return;
             playNode = new AudioWorkletNode(playCtx, 'playback-processor', {
                 numberOfInputs: 0,
@@ -617,7 +700,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             });
             if (stale()) { stream.getTracks().forEach(t => t.stop()); return; }
             micStream = stream;
-            await audioCtx.audioWorklet.addModule('js/mic_worklet.js');
+            await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=10');
             if (stale()) return;
 
             // Tokens are single-use and short-lived: mint right before connecting.
@@ -642,6 +725,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         const wasReady = sessionReady;
         teardown();  // detaches `socket`: its late events and close are ignored from now on
         setStatus('idle');
+        if (history.length) UI.logLine('note', 'Mic off. I remember this conversation until you reload the page.');
         if (!socket) return;
         if (socket.readyState === WebSocket.OPEN && wasReady) {
             // End cleanly so we don't pay for the 30 s resume window; the socket closes itself
@@ -693,6 +777,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             log('debug on', { localVad: SPEECH_RMS, turnDetection: TURN_DETECTION });
         }
         loadAcks();
+        UI.renderGuide(GUIDE);
         $('#hero-voice-btn').addEventListener('click', start);
         window.addEventListener('pagehide', () => {
             if (ws && ws.readyState === WebSocket.OPEN) send({ type: 'session.end' });
