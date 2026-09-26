@@ -368,6 +368,8 @@ const UI = (() => {
         line.className = `log-line log-${role}`;
         if (role === 'note') line.className = 'log-note';
         line.textContent = text;
+        const hints = $('#agent-hints');
+        if (hints) hints.hidden = true;  // the example phrases only fill the empty log
         log.insertBefore(line, log.querySelector('.voice-transcript'));
         log.scrollTop = log.scrollHeight;
     }

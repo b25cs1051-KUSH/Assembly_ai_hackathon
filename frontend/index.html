@@ -6,7 +6,7 @@
     <title>VoiceCart AI — Premium Umbrellas</title>
     <meta name="description" content="Voice-powered premium umbrella store. Explore handpicked umbrellas from top brands.">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a84ff' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M2 12a10 10 0 0 1 20 0z'/%3E%3Cpath d='M12 12v7a2 2 0 0 0 4 0'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="css/styles.css?v=12">
+    <link rel="stylesheet" href="css/styles.css?v=13">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
@@ -236,7 +236,13 @@
             <span class="agent-state" aria-hidden="true"></span>
         </div>
         <div class="agent-log" id="agent-log" aria-live="polite">
-            <p class="agent-log-empty">Press the mic and tell me what kind of umbrella you need.</p>
+            <!-- Example phrases to say out loud (not buttons); hidden once the conversation starts -->
+            <div class="agent-hints" id="agent-hints">
+                <p class="agent-hints-title">Press the mic and try saying</p>
+                <span class="hint-chip">“I need a windproof umbrella under 30 dollars”</span>
+                <span class="hint-chip">“Compare the first two”</span>
+                <span class="hint-chip">“What do people complain about?”</span>
+            </div>
             <!-- Finished lines are added here; the two lines below are the turn in progress -->
             <div class="voice-transcript">
                 <p class="voice-line voice-user" id="voice-user"></p>
@@ -262,10 +268,10 @@
     <!-- ============================================================ -->
     <!-- SCRIPTS                                                      -->
     <!-- ============================================================ -->
-    <script src="js/ui_renderer.js?v=12"></script>
-    <script src="js/app.js?v=12"></script>
-    <script src="js/agent_tools.js?v=12"></script>
-    <script src="js/voice_agent.js?v=12"></script>
+    <script src="js/ui_renderer.js?v=13"></script>
+    <script src="js/app.js?v=13"></script>
+    <script src="js/agent_tools.js?v=13"></script>
+    <script src="js/voice_agent.js?v=13"></script>
     <script>
         // Header: transparent at the top of the page, solid with a dark rule once scrolled
         (() => {

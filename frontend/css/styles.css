@@ -1272,8 +1272,18 @@ body { padding-bottom: 120px; }   /* room so the dock never covers the last row 
 
 /* Conversation log: finished lines of this visit; the live turn is the .voice-transcript at its end */
 .agent-log { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
-.agent-log-empty { font-size: 0.875rem; color: var(--text-tertiary); }
-.agent-log-empty:not(:only-of-type) { display: none; }
+.agent-hints { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; margin: auto 0; }
+.agent-hints[hidden] { display: none; }
+.agent-hints-title { font-size: 0.875rem; color: var(--text-tertiary); }
+.hint-chip {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    padding: 0.4rem 0.7rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    cursor: default;
+}
 .log-line { font-size: 0.875rem; line-height: 1.45; }
 .log-user { color: var(--text-secondary); }
 .log-user::before { content: 'You: '; color: var(--text-tertiary); }
@@ -1331,7 +1341,7 @@ body { padding-bottom: 120px; }   /* room so the dock never covers the last row 
 
 /* Phones: only the turn in progress and the mic; the log and guide stay out of the way */
 @media (max-width: 899px) {
-    .agent-log > .log-line, .agent-log > .log-note, .agent-log-empty { display: none; }
+    .agent-log > .log-line, .agent-log > .log-note, .agent-hints { display: none; }
     .agent-log { max-height: 30vh; }
     .agent-guide { max-height: 40vh; overflow-y: auto; }
 }
@@ -1987,7 +1997,8 @@ body { line-height: 1.6; background: var(--clr-bg); color: var(--clr-text-primar
 .log-user::before, .voice-user::before { content: none; }
 .voice-line:empty { display: none; }
 .log-note { color: var(--clr-text-secondary); border-top: 2px dashed var(--clr-text-primary); }
-.agent-log-empty { color: var(--clr-text-secondary); }
+.agent-hints-title { color: var(--clr-text-secondary); }
+.hint-chip { background: var(--clr-bg-card); border: 2px dashed #0f172a; font-weight: 500; }  /* dashed: a hint, not a button */
 
 .agent-guide summary { font-weight: 700; }
 .agent-guide-hint { color: #64748b; }
