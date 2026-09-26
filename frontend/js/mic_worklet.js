@@ -2,8 +2,9 @@
    Mic worklet — runs on the audio thread. Resamples mic audio from the
    AudioContext's native rate to 24 kHz, converts it to PCM16 and posts
    ~50 ms chunks to the main thread.
-   It also runs a small energy detector and posts 'speech' as soon as the
-   user starts talking, so playback can duck before the server confirms.
+   It also runs a small energy detector: it posts 'speech' as soon as the
+   user starts talking and 'silence' once they stop, so playback can stay
+   ducked for exactly as long as the user talks, before the server confirms.
    Resampling here (instead of creating a 24 kHz AudioContext) keeps it
    working in Firefox, which rejects mic sources at a non-native rate.
    ================================================================= */
@@ -51,7 +52,11 @@ class MicProcessor extends AudioWorkletProcessor {
             }
         } else {
             this.quietS += blockS;
-            if (this.quietS >= QUIET_RESET_S) { this.loudS = 0; this.inSpeech = false; }
+            if (this.quietS >= QUIET_RESET_S) {
+                if (this.inSpeech) this.port.postMessage('silence');
+                this.loudS = 0;
+                this.inSpeech = false;
+            }
         }
     }
 

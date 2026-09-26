@@ -2,8 +2,9 @@
    VoiceAgent — browser ↔ AssemblyAI Voice Agent API
    Mic → PCM16 24 kHz → input.audio; reply.audio → Web Audio playback.
    Barge-in: a local energy detector ducks playback the instant the user
-   speaks; the server's input.speech.started stops it. Echo can only cause
-   a short dip, never a cut. Add ?debug=1 to the URL to log audio timing.
+   speaks and holds it while they keep talking; the server's
+   input.speech.started stops it. Echo can only cause a dip (at most
+   DUCK_MAX_MS), never a cut. Add ?debug=1 to the URL to log audio timing.
    Docs: https://www.assemblyai.com/docs/voice-agents/voice-agent-api
    ================================================================= */
 
@@ -13,7 +14,8 @@ const VoiceAgent = (() => {
     const END_TIMEOUT_MS = 3000;       // wait this long for session.ended before force-closing
     const PLAYBACK_LEAD_S = 0.2;       // jitter buffer at the start of a reply and after an underrun
     const DUCK_GAIN = 0.15;            // playback volume while the user may be talking
-    const DUCK_RELEASE_MS = 700;       // restore volume if the server does not confirm speech by then
+    const DUCK_TAIL_MS = 400;          // after the user goes quiet, wait this long for the server before restoring
+    const DUCK_MAX_MS = 3000;          // restore anyway after this long unconfirmed (continuous echo, background noise)
 
     const params = new URLSearchParams(location.search);
     const DEBUG = params.has('debug');
@@ -34,6 +36,8 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     // Starting point from the docs; tune by ear.
     const TURN_DETECTION = { vad_threshold: 0.5, min_silence: 1400, max_silence: 4000, interrupt_response: true };
+    // Server-side barge-in delay (0–1000 ms); only sent when set with ?idelay= while tuning.
+    if (params.has('idelay')) TURN_DETECTION.interruption_delay = Number(params.get('idelay'));
 
     const STATUS_TEXT = {
         idle: 'Tap to shop by voice',
@@ -60,6 +64,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     // of the interrupted reply that are still in flight are dropped instead of played.
     let acceptAudio = true;
     let duckTimer = null;
+    let duckedAt = 0;                  // performance.now() when the current duck began, 0 when not ducked
 
     // Debug counters for the current reply
     let replyStartedAt = 0;
@@ -163,7 +168,11 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             case 'input.speech.started':
                 // Barge-in: cut the agent off the moment the user starts talking.
                 turnActive = true;
-                log('speech.started', { msIntoReply: sinceReply(), audioPlaying: playing.size > 0 });
+                log('speech.started', {
+                    msIntoReply: sinceReply(),
+                    audioPlaying: playing.size > 0,
+                    msAfterLocalDuck: duckedAt ? Math.round(performance.now() - duckedAt) : null,
+                });
                 acceptAudio = false;
                 stopPlayback();
                 showUser('…');
@@ -270,6 +279,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         });
         micNode.port.onmessage = e => {
             if (e.data === 'speech') { duck(); return; }
+            if (e.data === 'silence') { userWentQuiet(); return; }
             if (!sessionReady) return;
             send({ type: 'input.audio', audio: bytesToBase64(new Uint8Array(e.data)) });
         };
@@ -323,13 +333,25 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         if (!outGain || !playing.size) return;
         log('local speech → duck', { msIntoReply: sinceReply() });
         outGain.gain.setTargetAtTime(DUCK_GAIN, audioCtx.currentTime, 0.01);
+        duckedAt = performance.now();
+        // Held while the user keeps talking; this cap only matters if the "speech" never ends (echo, noise).
+        restoreAfter(DUCK_MAX_MS, `no server speech after ${DUCK_MAX_MS} ms → restore volume`);
+    }
+
+    function userWentQuiet() {
+        if (!duckedAt) return;
+        restoreAfter(DUCK_TAIL_MS, 'user went quiet, no server speech → restore volume');
+    }
+
+    function restoreAfter(ms, reason) {
         clearTimeout(duckTimer);
-        duckTimer = setTimeout(() => { log('no server speech → restore volume'); unduck(); }, DUCK_RELEASE_MS);
+        duckTimer = setTimeout(() => { log(reason); unduck(); }, ms);
     }
 
     function unduck() {
         clearTimeout(duckTimer);
         duckTimer = null;
+        duckedAt = 0;
         if (outGain) outGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.05);
     }
 
