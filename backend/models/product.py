@@ -18,4 +18,6 @@ class Product(BaseModel):
     specs: ProductSpecs
     description: str
     reviews_summary: str
+    pros: list[str]
+    cons: list[str]
     image_url: str

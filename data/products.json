@@ -15,6 +15,14 @@
     },
     "description": "A bright yellow compact travel umbrella wind-tested to 100 MPH. Reinforced fiberglass ribs, one-button auto open and close, and a premium rubber grip; it folds small enough for a backpack or car door pocket.",
     "reviews_summary": "Shoppers love how strong it is in real storms and how easy the bright yellow canopy is to spot; a few wish it were a little lighter.",
+    "pros": [
+      "Survives 100 MPH wind without flipping",
+      "Bright yellow is easy to spot"
+    ],
+    "cons": [
+      "Heavier than flimsy compacts",
+      "Auto close snaps shut hard"
+    ],
     "reviews": [
       {
         "name": "Priya S.",
@@ -107,6 +115,14 @@
     },
     "description": "Repel's best-selling black travel umbrella. Nine resin-reinforced fiberglass ribs and a Teflon-coated canopy shrug off wind and rain, with auto open and close and a latex-free rubber handle.",
     "reviews_summary": "A reliable everyday umbrella that people keep rebuying; the most common complaint is the weight for such a compact size.",
+    "pros": [
+      "Reliable build that lasts for years",
+      "Water beads right off the canopy"
+    ],
+    "cons": [
+      "Heavy for a compact at 14 oz",
+      "Tight for two people"
+    ],
     "reviews": [
       {
         "name": "Marcus J.",
@@ -205,6 +221,14 @@
     },
     "description": "A vintage-style yellow stick umbrella with a classic wooden J-handle and solid wooden shaft. The 48-inch auto-open canopy covers two people, and flexible fiberglass ribs bend in the wind instead of breaking.",
     "reviews_summary": "People adore the sunny yellow color and the wooden handle; a few note it is long to carry on crowded transit.",
+    "pros": [
+      "Cheerful yellow with a real wood handle",
+      "48-inch canopy covers two"
+    ],
+    "cons": [
+      "Long stick is awkward on transit",
+      "Heavier than a folding umbrella"
+    ],
     "reviews": [
       {
         "name": "Charlotte M.",
@@ -291,6 +315,14 @@
     },
     "description": "A clear dome bubble umbrella with a see-through canopy that curves down over your head and shoulders. Lightweight aluminum frame and a classic J-hook handle; you can see where you're walking while staying dry.",
     "reviews_summary": "Loved for visibility and the deep dome coverage; not the pick for strong wind.",
+    "pros": [
+      "See-through dome lets you watch where you walk",
+      "Deep canopy covers head and shoulders"
+    ],
+    "cons": [
+      "Catches strong wind",
+      "Hard to share under the dome"
+    ],
     "reviews": [
       {
         "name": "Olivia P.",
@@ -371,6 +403,14 @@
     },
     "description": "A timeless black stick umbrella with a genuine wood J-hook handle and wooden shaft. Auto open at the push of a button, with a water-repellent canopy that keeps business attire dry.",
     "reviews_summary": "A classic, professional-looking umbrella that buyers call good value; wind resistance is average.",
+    "pros": [
+      "Classic look with a real wood J-hook",
+      "Hooks over your arm hands-free"
+    ],
+    "cons": [
+      "Only average wind resistance",
+      "Strap snap could be stronger"
+    ],
     "reviews": [
       {
         "name": "Richard A.",
@@ -457,6 +497,14 @@
     },
     "description": "A bold bright red 51-inch stick umbrella with a matching red J-hook handle. The UPF 50+ canopy blocks sun as well as rain, and it opens automatically with one press.",
     "reviews_summary": "Buyers love the vivid red and the big canopy for both rain and sun; some find the handle a little slippery when wet.",
+    "pros": [
+      "Vivid red with a matching hook handle",
+      "UPF 50+ works for sun and rain"
+    ],
+    "cons": [
+      "Handle gets slippery when wet",
+      "Too long for a car door pocket"
+    ],
     "reviews": [
       {
         "name": "Jessica N.",
@@ -549,6 +597,14 @@
     },
     "description": "An oversized navy blue golf umbrella with a vented double canopy that lets gusts pass through instead of flipping it. The 62-inch canopy fits two or three people, on a full fiberglass frame with a comfortable foam grip.",
     "reviews_summary": "Customers rave about the massive coverage and wind stability; the main downside is its size when closed.",
+    "pros": [
+      "Huge 62-inch canopy fits two or three",
+      "Vented double canopy stays stable in wind"
+    ],
+    "cons": [
+      "Very long when closed",
+      "Needs room to open"
+    ],
     "reviews": [
       {
         "name": "Brandon H.",
@@ -647,6 +703,14 @@
     },
     "description": "A reverse-folding double-layer umbrella with a dark navy exterior and a starry galaxy print inside. It closes wet-side-in so it won't drip in your car, stands up on its own when closed, and has a hands-free C-shaped handle.",
     "reviews_summary": "People love the galaxy print and the no-drip inverted closing; the manual open takes a little getting used to.",
+    "pros": [
+      "Closes wet side in, no drips in the car",
+      "Hands-free C-handle and galaxy print"
+    ],
+    "cons": [
+      "Manual open takes getting used to",
+      "Heavier than a regular stick umbrella"
+    ],
     "reviews": [
       {
         "name": "Aisha M.",
@@ -733,6 +797,14 @@
     },
     "description": "A London-designed olive green folding umbrella with a handmade real-wood handle. Opens to a 40.5-inch vented double canopy, folds to 13.8 inches, and weighs 13.9 ounces with one-touch auto open and close.",
     "reviews_summary": "A premium-feeling compact that people buy for the wood handle and muted olive color; a couple of reviewers wanted a bigger canopy.",
+    "pros": [
+      "Handmade real-wood handle feels premium",
+      "Folds small but has a vented double canopy"
+    ],
+    "cons": [
+      "Canopy is small for tall people",
+      "Priciest umbrella in the store"
+    ],
     "reviews": [
       {
         "name": "Alistair P.",
@@ -819,6 +891,14 @@
     },
     "description": "A reverse-folding compact umbrella with a black exterior and a soft pink UV-coated interior. Ten reinforced fiberglass ribs, a UPF 50+ silver coating for sun, a 360 degree reflective stripe for night visibility, and one-button auto open and close.",
     "reviews_summary": "Shoppers like the pretty pink inside, the reflective stripe and the sun protection; a few say the inverted fold takes practice.",
+    "pros": [
+      "Reflective stripe for night walks",
+      "UPF 50+ pink lining keeps you cooler"
+    ],
+    "cons": [
+      "Inverted fold takes practice",
+      "Auto close sometimes needs a second press"
+    ],
     "reviews": [
       {
         "name": "Ashley R.",
@@ -911,6 +991,14 @@
     },
     "description": "A light beige compact umbrella for rain and sun, with a UPF 50+ coating that blocks 99% of UV rays. Eight-rib windproof frame, push-button auto open and close, and small enough for a medium purse.",
     "reviews_summary": "A lightweight everyday pick that people like for sun protection and the neutral beige color; not built for heavy storms.",
+    "pros": [
+      "Very light and fits in a purse",
+      "UPF 50+ blocks 99% of UV"
+    ],
+    "cons": [
+      "Not built for storms",
+      "Canopy fits one person only"
+    ],
     "reviews": [
       {
         "name": "Riya M.",
@@ -991,6 +1079,14 @@
     },
     "description": "A kid-sized clear dome bubble umbrella covered in rainbow polka dots. The see-through canopy lets little ones watch where they're going, with a child-friendly rubber hook handle and lightweight frame.",
     "reviews_summary": "Parents love the cheerful rainbow dots and the see-through dome for safety; it is sized for small children only.",
+    "pros": [
+      "Clear dome lets kids see traffic",
+      "Light enough for a child to carry"
+    ],
+    "cons": [
+      "Too small for kids past about 8",
+      "Thin handle for little hands"
+    ],
     "reviews": [
       {
         "name": "Jennifer W.",
@@ -1071,6 +1167,14 @@
     },
     "description": "A compact folding umbrella printed with Van Gogh's Almond Blossom: white blossoms on a soft sky-blue canopy. Auto open and close at the push of a button, lightweight and packable for travel.",
     "reviews_summary": "Buyers call it a wearable piece of art and love the sky-blue blossom print; durability in heavy wind is average.",
+    "pros": [
+      "Van Gogh blossom print gets compliments",
+      "Compact and light for travel"
+    ],
+    "cons": [
+      "Only average in heavy gusts",
+      "A rib can bend in strong wind"
+    ],
     "reviews": [
       {
         "name": "Isabella R.",
@@ -1157,6 +1261,14 @@
     },
     "description": "A premium black collapsible travel umbrella built on an industrial-strength fiberglass frame and rated for winds up to 55 MPH. One-touch auto open, a 360 degree reflective trim for night visibility, and a vented canopy.",
     "reviews_summary": "Reviewers praise the build quality and reflective trim; some wish it closed automatically too.",
+    "pros": [
+      "Rated for 55 MPH winds",
+      "360 degree reflective trim"
+    ],
+    "cons": [
+      "Auto open but manual close",
+      "Pricier than similar compacts"
+    ],
     "reviews": [
       {
         "name": "Michael F.",
@@ -1249,6 +1361,14 @@
     },
     "description": "Samsonite's black Windguard compact with a Teflon-coated polyester canopy and a vented wind-guard design. Automatic open and close, Samsonite-branded rubber handle, and a 12-inch folded length.",
     "reviews_summary": "A dependable branded compact that buyers trust; a few note the canopy is modest for heavy downpours.",
+    "pros": [
+      "Trusted Samsonite build",
+      "Teflon canopy sheds water instantly"
+    ],
+    "cons": [
+      "Canopy is modest in heavy rain",
+      "Auto close is loud"
+    ],
     "reviews": [
       {
         "name": "William K.",

@@ -59,6 +59,8 @@ def compare_products(ids: list[str]) -> dict:
         ("Canopy Size", lambda p: f"{p['specs']['canopy_size_inches']}\""),
         ("Frame Material", lambda p: p["specs"]["frame_material"]),
         ("Auto-Open", lambda p: "Yes" if p["specs"]["automatic_open"] else "No"),
+        ("Pros", lambda p: "; ".join(p.get("pros", []))),
+        ("Cons", lambda p: "; ".join(p.get("cons", []))),
     ]
 
     matrix = []
