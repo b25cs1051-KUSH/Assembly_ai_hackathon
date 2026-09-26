@@ -6,7 +6,7 @@
     <title>VoiceCart AI — Premium Umbrellas</title>
     <meta name="description" content="Voice-powered premium umbrella store. Explore handpicked umbrellas from top brands.">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a84ff' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M2 12a10 10 0 0 1 20 0z'/%3E%3Cpath d='M12 12v7a2 2 0 0 0 4 0'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="css/styles.css?v=13">
+    <link rel="stylesheet" href="css/styles.css?v=14">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
@@ -57,7 +57,9 @@
     <!-- FILTERS BAR                                                  -->
     <!-- ============================================================ -->
     <section class="filters-bar" id="filters-bar">
-        <div class="filters-inner">
+        <!-- Phones only: the filters fold away behind this button -->
+        <button class="filters-toggle" id="filters-toggle" aria-expanded="false" aria-controls="filters-inner">Filters</button>
+        <div class="filters-inner" id="filters-inner">
             <div class="filter-group">
                 <label for="filter-brand">Brand</label>
                 <select id="filter-brand">
@@ -268,10 +270,10 @@
     <!-- ============================================================ -->
     <!-- SCRIPTS                                                      -->
     <!-- ============================================================ -->
-    <script src="js/ui_renderer.js?v=13"></script>
-    <script src="js/app.js?v=13"></script>
-    <script src="js/agent_tools.js?v=13"></script>
-    <script src="js/voice_agent.js?v=13"></script>
+    <script src="js/ui_renderer.js?v=14"></script>
+    <script src="js/app.js?v=14"></script>
+    <script src="js/agent_tools.js?v=14"></script>
+    <script src="js/voice_agent.js?v=14"></script>
     <script>
         // Header: transparent at the top of the page, solid with a dark rule once scrolled
         (() => {

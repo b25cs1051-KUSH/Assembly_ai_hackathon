@@ -315,6 +315,10 @@ const App = (() => {
         });
         $('#filter-rating').addEventListener('change', e => { state.filters.minRating = +e.target.value; applyFilters(); });
         $('#filter-reset').addEventListener('click', resetFilters);
+        $('#filters-toggle').addEventListener('click', () => {
+            const open = $('#filters-bar').classList.toggle('expanded');
+            $('#filters-toggle').setAttribute('aria-expanded', String(open));
+        });
         $('#empty-reset').addEventListener('click', resetFilters);
 
         /* Search */
