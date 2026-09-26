@@ -1,7 +1,9 @@
 /* =================================================================
    VoiceAgent — browser ↔ AssemblyAI Voice Agent API
    Mic → PCM16 24 kHz → input.audio; reply.audio → Web Audio playback.
-   Barge-in: user speech stops agent playback immediately.
+   Barge-in: a local energy detector ducks playback the instant the user
+   speaks; the server's input.speech.started stops it. Echo can only cause
+   a short dip, never a cut. Add ?debug=1 to the URL to log audio timing.
    Docs: https://www.assemblyai.com/docs/voice-agents/voice-agent-api
    ================================================================= */
 
@@ -9,7 +11,14 @@ const VoiceAgent = (() => {
     const SAMPLE_RATE = 24000;
     const WS_URL = 'wss://agents.assemblyai.com/v1/ws';
     const END_TIMEOUT_MS = 3000;       // wait this long for session.ended before force-closing
-    const PLAYBACK_LEAD_S = 0.05;      // small jitter buffer before the first chunk of a reply
+    const PLAYBACK_LEAD_S = 0.2;       // jitter buffer at the start of a reply and after an underrun
+    const DUCK_GAIN = 0.15;            // playback volume while the user may be talking
+    const DUCK_RELEASE_MS = 700;       // restore volume if the server does not confirm speech by then
+
+    const params = new URLSearchParams(location.search);
+    const DEBUG = params.has('debug');
+    const SPEECH_RMS = Number(params.get('vad')) || 0.03;  // local detector level; tune with ?vad=
+    const log = (...args) => { if (DEBUG) console.log('[voice]', ...args); };
 
     const SYSTEM_PROMPT = `You are the voice shopping assistant for VoiceCart, an online umbrella store.
 You are talking out loud, so never use markdown, lists, emojis or symbols. Keep replies to one or two short sentences.
@@ -38,6 +47,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     let micStream = null;
     let micSource = null;
     let micNode = null;
+    let outGain = null;                // all agent audio goes through this, so it can be ducked
     let sessionReady = false;
     let status = 'idle';
     // Bumped on every start/stop; async work from an older attempt checks it and bails out.
@@ -49,6 +59,11 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     // False from the moment the user barges in until the next reply starts, so audio chunks
     // of the interrupted reply that are still in flight are dropped instead of played.
     let acceptAudio = true;
+    let duckTimer = null;
+
+    // Debug counters for the current reply
+    let replyStartedAt = 0;
+    let droppedChunks = 0;
 
     // Live agent caption, built from word deltas
     let agentText = '';
@@ -148,6 +163,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             case 'input.speech.started':
                 // Barge-in: cut the agent off the moment the user starts talking.
                 turnActive = true;
+                log('speech.started', { msIntoReply: sinceReply(), audioPlaying: playing.size > 0 });
                 acceptAudio = false;
                 stopPlayback();
                 showUser('…');
@@ -162,10 +178,14 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 turnActive = true;
                 acceptAudio = true;
                 agentText = '';
+                nextStartTime = 0;  // a fresh reply gets the full jitter buffer
+                replyStartedAt = performance.now();
+                droppedChunks = 0;
                 break;
 
             case 'reply.audio':
                 if (acceptAudio) playChunk(evt.data);
+                else droppedChunks++;
                 break;
 
             case 'transcript.agent.delta':
@@ -183,6 +203,10 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
             case 'reply.done':
                 turnActive = false;
+                log('reply.done', { status: evt.status, msIntoReply: sinceReply(), droppedChunks });
+                if (evt.status === 'completed' && droppedChunks) {
+                    log(`false barge-in: reply completed but ${droppedChunks} chunks were muted after speech.started`);
+                }
                 if (evt.status === 'interrupted') {
                     stopPlayback();
                     pendingResults = [];
@@ -240,8 +264,12 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     function startMic() {
         micSource = audioCtx.createMediaStreamSource(micStream);
         // numberOfOutputs: 0 → the node is always processed without being wired to the speakers.
-        micNode = new AudioWorkletNode(audioCtx, 'mic-processor', { numberOfOutputs: 0 });
+        micNode = new AudioWorkletNode(audioCtx, 'mic-processor', {
+            numberOfOutputs: 0,
+            processorOptions: { speechRms: SPEECH_RMS },
+        });
         micNode.port.onmessage = e => {
+            if (e.data === 'speech') { duck(); return; }
             if (!sessionReady) return;
             send({ type: 'input.audio', audio: bytesToBase64(new Uint8Array(e.data)) });
         };
@@ -261,10 +289,13 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
         const src = audioCtx.createBufferSource();
         src.buffer = buffer;
-        src.connect(audioCtx.destination);
+        src.connect(outGain);
 
         const now = audioCtx.currentTime;
-        if (nextStartTime < now) nextStartTime = now + PLAYBACK_LEAD_S;
+        if (nextStartTime < now) {
+            if (nextStartTime) log('underrun', { gapMs: Math.round((now - nextStartTime) * 1000), msIntoReply: sinceReply() });
+            nextStartTime = now + PLAYBACK_LEAD_S;
+        }
         src.start(nextStartTime);
         nextStartTime += buffer.duration;
 
@@ -283,7 +314,27 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         }
         playing.clear();
         nextStartTime = 0;
+        unduck();
         if (status === 'speaking') setStatus('listening');
+    }
+
+    /* Instant local reaction to the user's voice; the server event decides whether it is a real barge-in */
+    function duck() {
+        if (!outGain || !playing.size) return;
+        log('local speech → duck', { msIntoReply: sinceReply() });
+        outGain.gain.setTargetAtTime(DUCK_GAIN, audioCtx.currentTime, 0.01);
+        clearTimeout(duckTimer);
+        duckTimer = setTimeout(() => { log('no server speech → restore volume'); unduck(); }, DUCK_RELEASE_MS);
+    }
+
+    function unduck() {
+        clearTimeout(duckTimer);
+        duckTimer = null;
+        if (outGain) outGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.05);
+    }
+
+    function sinceReply() {
+        return replyStartedAt ? Math.round(performance.now() - replyStartedAt) : null;
     }
 
     /* ── LIFECYCLE ──────────────────────────────────────────────── */
@@ -306,6 +357,8 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             // the mic worklet resamples to 24 kHz, and playback buffers are created at 24 kHz.
             audioCtx = new AudioContext();
             await audioCtx.resume();
+            outGain = audioCtx.createGain();
+            outGain.connect(audioCtx.destination);
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: true },
             });
@@ -357,6 +410,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         stopMic();
         stopPlayback();
         if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+        outGain = null;
         sessionReady = false;
         turnActive = false;
         pendingResults = [];
