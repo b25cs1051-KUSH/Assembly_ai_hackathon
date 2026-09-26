@@ -15,9 +15,16 @@ const VoiceAgent = (() => {
 You are talking out loud, so never use markdown, lists, emojis or symbols. Keep replies to one or two short sentences.
 Round prices when speaking, for example "about thirty dollars".
 Be warm, friendly and humble, like a helpful friend in the store. If you get something wrong, apologise briefly and correct yourself.
-Never invent products, prices, specs or reviews. You do not have access to the catalog yet, so if the user asks about specific products, say you cannot look them up right now.`;
+Whenever the user describes what they want or changes a requirement, call search_products. It updates the products on the user's screen. Each call replaces the previous filters, so include every requirement the user still wants.
+Only talk about products, prices, specs and ratings that a tool returned. Never invent them. If you do not know something, say so.
+After a search, say how many umbrellas matched, mention the top one or two by brand with the detail that fits the request, and ask what matters most to them.
+Results are numbered by position, so "the second one" means position two of the latest search.
+If nothing matches, say so and offer to relax one requirement, such as the price.`;
 
     const GREETING = "Hi, I'm your VoiceCart shopping assistant. What kind of umbrella are you looking for today?";
+
+    // Starting point from the docs; tune by ear.
+    const TURN_DETECTION = { vad_threshold: 0.5, min_silence: 1400, max_silence: 4000, interrupt_response: true };
 
     const STATUS_TEXT = {
         idle: 'Tap to shop by voice',
@@ -45,6 +52,12 @@ Never invent products, prices, specs or reviews. You do not have access to the c
 
     // Live agent caption, built from word deltas
     let agentText = '';
+
+    // Tool results may only be sent once the current turn is over (reply.done). Results from a
+    // reply the user interrupted are thrown away; turnGen marks which results are still valid.
+    let turnActive = false;
+    let turnGen = 0;
+    let pendingResults = [];
 
     const $ = sel => document.querySelector(sel);
 
@@ -94,6 +107,11 @@ Never invent products, prices, specs or reviews. You do not have access to the c
                 session: {
                     system_prompt: SYSTEM_PROMPT,
                     greeting: GREETING,
+                    tools: AgentTools.definitions(),
+                    input: {
+                        keyterms: AgentTools.keyterms(),
+                        turn_detection: TURN_DETECTION,
+                    },
                 },
             });
         };
@@ -129,6 +147,7 @@ Never invent products, prices, specs or reviews. You do not have access to the c
 
             case 'input.speech.started':
                 // Barge-in: cut the agent off the moment the user starts talking.
+                turnActive = true;
                 acceptAudio = false;
                 stopPlayback();
                 showUser('…');
@@ -140,6 +159,7 @@ Never invent products, prices, specs or reviews. You do not have access to the c
                 break;
 
             case 'reply.started':
+                turnActive = true;
                 acceptAudio = true;
                 agentText = '';
                 break;
@@ -162,7 +182,18 @@ Never invent products, prices, specs or reviews. You do not have access to the c
                 break;
 
             case 'reply.done':
-                if (evt.status === 'interrupted') stopPlayback();
+                turnActive = false;
+                if (evt.status === 'interrupted') {
+                    stopPlayback();
+                    pendingResults = [];
+                    turnGen++;  // results of tools still running for this reply are stale
+                } else {
+                    flushResults();
+                }
+                break;
+
+            case 'tool.call':
+                runTool(evt);
                 break;
 
             case 'session.error':
@@ -179,6 +210,30 @@ Never invent products, prices, specs or reviews. You do not have access to the c
                 break;
             }
         }
+    }
+
+    /* ── TOOLS ──────────────────────────────────────────────────── */
+    async function runTool(evt) {
+        const gen = turnGen;
+        let result;
+        let isError = false;
+        try {
+            result = await AgentTools.run(evt.name, evt.arguments);
+        } catch (err) {
+            console.warn('Tool failed', evt.name, evt.arguments, err);
+            result = { error: err.message };
+            isError = true;
+        }
+        if (gen !== turnGen) return;  // interrupted, or the session ended, while the tool ran
+        const msg = { type: 'tool.result', call_id: evt.call_id, result: JSON.stringify(result) };
+        if (isError) msg.is_error = true;
+        pendingResults.push(msg);
+        flushResults();  // the tool may finish after reply.done has already arrived
+    }
+
+    function flushResults() {
+        if (turnActive) return;
+        pendingResults.splice(0).forEach(send);
     }
 
     /* ── MIC ────────────────────────────────────────────────────── */
@@ -303,6 +358,9 @@ Never invent products, prices, specs or reviews. You do not have access to the c
         stopPlayback();
         if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
         sessionReady = false;
+        turnActive = false;
+        pendingResults = [];
+        turnGen++;
         ws = null;
     }
 
@@ -313,6 +371,7 @@ Never invent products, prices, specs or reviews. You do not have access to the c
 
     function init() {
         $('#voice-btn').addEventListener('click', toggle);
+        $('#hero-voice-btn').addEventListener('click', start);
         window.addEventListener('pagehide', () => {
             if (ws && ws.readyState === WebSocket.OPEN) send({ type: 'session.end' });
         });

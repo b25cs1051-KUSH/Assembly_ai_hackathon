@@ -9,17 +9,33 @@ const App = (() => {
         filtered: [],
         cart: [],            // { id, qty }
         compareSet: new Set(),
-        filters: {
-            brand: 'all',
-            maxPrice: Infinity,
-            minWind: 0,
-            minRating: 0,
-            search: '',
-        },
+        filters: defaultFilters(),
         priceCeiling: 100,   // slider max, derived from the catalog
     };
 
     /* ── HELPERS ────────────────────────────────────────────────── */
+    function defaultFilters() {
+        return {
+            brand: 'all',
+            maxPrice: Infinity,
+            minWind: 0,
+            minRating: 0,
+            maxWeight: Infinity,
+            autoOpen: false,     // true → only automatic-open umbrellas
+            search: '',
+            sortBy: 'relevance',
+        };
+    }
+
+    const SORTERS = {
+        relevance: null,  // catalog order
+        price_low_to_high: (a, b) => a.price - b.price,
+        price_high_to_low: (a, b) => b.price - a.price,
+        rating: (a, b) => b.rating - a.rating,
+        lightest: (a, b) => a.specs.weight_oz - b.specs.weight_oz,
+        most_wind_resistant: (a, b) => b.specs.wind_rating_mph - a.specs.wind_rating_mph,
+    };
+
     const $ = sel => document.querySelector(sel);
     const productById = id => state.products.find(p => String(p.id) === String(id));
 
@@ -59,31 +75,53 @@ const App = (() => {
     /* ── FILTERS ────────────────────────────────────────────────── */
     function applyFilters() {
         const f = state.filters;
+        // Every search word must appear somewhere, in any order ("clear bubble" matches "Clear Bubble Umbrella").
+        const words = f.search.toLowerCase().split(/\s+/).filter(Boolean);
         state.filtered = state.products.filter(p => {
             if (f.brand !== 'all' && p.brand !== f.brand) return false;
             if (p.price > f.maxPrice) return false;
             if (p.specs.wind_rating_mph < f.minWind) return false;
             if (p.rating < f.minRating) return false;
-            if (f.search) {
-                const q = f.search.toLowerCase();
+            if (p.specs.weight_oz > f.maxWeight) return false;
+            if (f.autoOpen && !p.specs.automatic_open) return false;
+            if (words.length) {
                 const haystack = `${p.name} ${p.brand} ${p.description} ${p.specs.frame_material}`.toLowerCase();
-                if (!haystack.includes(q)) return false;
+                if (!words.every(w => haystack.includes(w))) return false;
             }
             return true;
         });
+        const sorter = SORTERS[f.sortBy];
+        if (sorter) state.filtered.sort(sorter);
         UI.renderGrid(state.filtered, state.compareSet);
     }
 
+    /* Moves the filter bar controls to match state.filters (the voice agent sets filters too) */
+    function syncFilterControls() {
+        const f = state.filters;
+        const price = Math.min(f.maxPrice, state.priceCeiling);
+        $('#filter-brand').value = f.brand;
+        $('#filter-price').value = price;
+        $('#filter-price-label').textContent = `$${price}`;
+        $('#filter-wind').value = f.minWind;
+        $('#filter-wind-label').textContent = `${f.minWind} mph`;
+        // The select only has fixed steps: show the closest one that is not stricter than the filter.
+        const ratingSteps = [...$('#filter-rating').options].map(o => +o.value).filter(v => v <= f.minRating);
+        $('#filter-rating').value = Math.max(...ratingSteps);
+        $('#search-input').value = f.search;
+    }
+
     function resetFilters() {
-        state.filters = { brand: 'all', maxPrice: state.priceCeiling, minWind: 0, minRating: 0, search: '' };
-        $('#filter-brand').value = 'all';
-        $('#filter-price').value = state.priceCeiling;
-        $('#filter-price-label').textContent = `$${state.priceCeiling}`;
-        $('#filter-wind').value = 0;
-        $('#filter-wind-label').textContent = '0 mph';
-        $('#filter-rating').value = 0;
-        $('#search-input').value = '';
+        state.filters = defaultFilters();
+        syncFilterControls();
         applyFilters();
+    }
+
+    /* Replaces all filters at once; returns the matching products in display order */
+    function setFilters(partial) {
+        state.filters = { ...defaultFilters(), ...partial };
+        syncFilterControls();
+        applyFilters();
+        return state.filtered;
     }
 
     /* ── COMPARE ────────────────────────────────────────────────── */
@@ -255,8 +293,12 @@ const App = (() => {
 
     document.addEventListener('DOMContentLoaded', init);
 
-    /* ── PUBLIC API (used by inline onclick handlers) ────────────── */
+    /* ── PUBLIC API (inline onclick handlers and agent tools) ────── */
     return {
+        getProducts: () => state.products,
+        getBrands: () => [...new Set(state.products.map(p => p.brand))].sort((a, b) => a.localeCompare(b)),
+        sortOptions: Object.keys(SORTERS),
+        setFilters,
         toggleCompare,
         openDetail,
         addToCart,
