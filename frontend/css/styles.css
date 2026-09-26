@@ -363,6 +363,14 @@ img { display: block; max-width: 100%; }
     margin: 0 auto 2rem;
 }
 
+.hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
 /* ----------------------------------------------------------------- */
 /* 6. BUTTONS                                                        */
 /* ----------------------------------------------------------------- */

@@ -99,7 +99,11 @@
                 <p class="hero-eyebrow">Premium Umbrella Collection</p>
                 <h1>Engineered for<br><span class="hero-accent">Every Storm</span></h1>
                 <p class="hero-sub">Handpicked umbrellas from the world's finest makers.<br>Built to last. Designed to inspire.</p>
-                <button class="btn-primary" id="hero-browse-btn">Browse Collection</button>
+                <div class="hero-actions">
+                    <!-- Browsers only allow mic and sound after a click, so the voice session starts here -->
+                    <button class="btn-primary" id="hero-voice-btn">Start shopping with voice</button>
+                    <button class="btn-secondary" id="hero-browse-btn">Browse Collection</button>
+                </div>
             </div>
         </section>
 
@@ -230,6 +234,7 @@
     <!-- ============================================================ -->
     <script src="js/ui_renderer.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/agent_tools.js"></script>
     <script src="js/voice_agent.js"></script>
 
 </body>
