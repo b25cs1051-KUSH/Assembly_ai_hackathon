@@ -1,13 +1,60 @@
 # VoiceCart AI
-*Next-gen Voice-Driven E-Commerce MVP, powered by AssemblyAI Streaming STT.*
 
-## Problem & Solution
-Traditional GUI search in e-commerce can be clunky, especially on mobile devices or when users have specific, multi-attribute queries (e.g., "Show me windproof umbrellas under $45"). 
-VoiceCart AI provides a real-time, voice-native shopping experience. By embedding an intelligent voice agent directly into the shopping UI, users can search, compare, and check out hands-free.
+**Talk to the store and it answers out loud while the page changes as you speak: search, compare, ask about reviews, fill the cart and check out without touching a button.**
 
-## AssemblyAI Key Highlights
-- **Real-time Streaming STT:** Utilizes AssemblyAI's low-latency WebSockets API to process user intent instantly.
-- **Barge-in Support:** The agent's local speech output is immediately interrupted when the user starts speaking, ensuring a natural conversational flow.
+**Live demo:** https://voicecart-ai-o76d.onrender.com/ (Chrome or Edge, allow the microphone; headphones give the cleanest barge-in)
+
+Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
+
+## Try saying
+
+Press the mic, then say these in order:
+
+1. "I need a windproof umbrella under 30 dollars." The filters move, the grid updates and the top three results get numbers.
+2. "Wait, which one is the lightest?" Say it while the agent is talking: it stops mid-sentence.
+3. "Compare the first two." A side-by-side table opens.
+4. "What do people complain about with the first one?" The agent answers only from the store's review data.
+5. "Add it to my cart. Actually, make it two." The cart updates.
+6. "Check out." The agent reads the total and asks you to confirm. Then say "Yes, place it."
+7. Stop the mic, start it again and ask "What's in my cart?" It remembers the visit.
+
+## AssemblyAI features used
+
+| Feature | What it does in VoiceCart |
+|---|---|
+| Voice Agent API (one WebSocket) | Speech-to-text, the LLM, and text-to-speech in one session between the browser and AssemblyAI |
+| Temporary tokens (`GET /v1/token`) | Our server mints a single-use token per session, so the API key never reaches the browser |
+| Client-side tool calling | 7 JSON-Schema tools (`search_products`, `show_product`, `compare_products`, `update_compare`, `update_cart`, `checkout`, `place_order`) run in the browser and change the page. The agent only states prices, specs and reviews a tool returned |
+| `input.keyterms` | Every brand name, so recognition spells "TUMELLA" or "SIEPASA" the way the catalog does |
+| `input.turn_detection` | `min_silence 1000`, `max_silence 2000`, tuned by measurement (section 6 below) |
+| Barge-in (`interrupt_response`, `input.speech.started`, `reply.done` interrupted) | The user can cut in at any time and the agent stops at once |
+| `greeting` and `conversation.message` | A returning session gets "Welcome back" plus the earlier conversation, the results on screen and the cart |
+| The agent's own voice | The acknowledgement clips ("Sure, let me look.") are recorded from the Voice Agent API, so they match the live voice |
+
+How it fits together: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Run locally
+
+Requires Python 3.10+ and an AssemblyAI API key.
+
+```bash
+python -m venv venv
+venv\Scripts\activate            # Windows; on macOS or Linux: source venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env             # then set ASSEMBLYAI_API_KEY
+uvicorn backend.main:app --port 8000
+```
+
+Open http://localhost:8000. Localhost counts as a secure context, so the microphone works without HTTPS.
+
+## Tests
+
+```bash
+node scripts/test_agent_tools.js   # tools against the real catalog: spoken search wording, positions, compare, cart, checkout
+node scripts/test_mentions.js      # product mentions in the agent's speech that time the card highlights
+ruff check backend                 # lint
+python -m scripts.voice_latency latency --trials 4 --silence 1000:2000   # live latency, needs the API key
+```
 
 ## How the voice pipeline handles interruptions and playback
 
@@ -103,37 +150,3 @@ Add these to the URL to tune the pipeline without redeploying:
 | `&vad=0.03` | Local detector threshold (mic RMS, 0–1). Raise it if the agent's own voice causes pauses, and lower it if your voice doesn't. |
 | `&svad=0.5` | Overrides AssemblyAI's `vad_threshold` (0–1). |
 | `&idelay=0` | Sends `interruption_delay` (0–1000 ms) to AssemblyAI's turn detection. |
-
-## Supported Voice Commands
-| Command Trigger | Description |
-|-----------------|-------------|
-| `search` | "Show me blue umbrellas" - Queries products by attributes. |
-| `compare` | "Compare the StormShield and Aeroflex" - Triggers a 3-item comparison matrix. |
-| `show item` / `inspect` | "Show item 1" - Deep dives into product specs and reviews. |
-| `add to cart` | "Add this to my cart" - Adds the currently viewed item to the cart. |
-| `checkout` | "Let's check out" - Navigates to the checkout flow. |
-| `interrupt` | Any user speech instantly stops the agent from talking. |
-
-## Quickstart Guide
-
-1. **Clone & Setup Environment**
-   ```bash
-   cd voicecart-ai
-   python -m venv venv
-   source venv/bin/activate  # or venv\Scripts\activate on Windows
-   pip install -e .
-   ```
-
-2. **Configure Environment**
-   Copy `.env.example` to `.env` and add your AssemblyAI API Key:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Run the Backend**
-   ```bash
-   uvicorn backend.main:app --reload
-   ```
-
-4. **Access the Frontend**
-   Open `http://localhost:8000/` in your browser.
