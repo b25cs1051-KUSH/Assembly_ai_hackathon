@@ -1,10 +1,12 @@
 /* =================================================================
    VoiceAgent — browser ↔ AssemblyAI Voice Agent API
    Mic → PCM16 24 kHz → input.audio; reply.audio → Web Audio playback.
-   Barge-in: a local energy detector ducks playback the instant the user
-   speaks and holds it while they keep talking; the server's
-   input.speech.started stops it. Echo can only cause a dip (at most
-   DUCK_MAX_MS), never a cut. Add ?debug=1 to the URL to log audio timing.
+   Barge-in ("mute and listen"): when the local detector hears speech, the
+   agent is muted at once. Echo stops the moment our output stops, so if the
+   mic goes quiet within PROBE_MS it was echo and playback resumes; if the
+   user keeps talking, the rest of the reply is dropped and the agent stays
+   silent until it answers. The server's input.speech.started also stops it.
+   Add ?debug=1 to the URL for an on-screen log of audio timing.
    Docs: https://www.assemblyai.com/docs/voice-agents/voice-agent-api
    ================================================================= */
 
@@ -13,14 +15,25 @@ const VoiceAgent = (() => {
     const WS_URL = 'wss://agents.assemblyai.com/v1/ws';
     const END_TIMEOUT_MS = 3000;       // wait this long for session.ended before force-closing
     const PLAYBACK_LEAD_S = 0.2;       // jitter buffer at the start of a reply and after an underrun
-    const DUCK_GAIN = 0.15;            // playback volume while the user may be talking
-    const DUCK_TAIL_MS = 400;          // after the user goes quiet, wait this long for the server before restoring
-    const DUCK_MAX_MS = 3000;          // restore anyway after this long unconfirmed (continuous echo, background noise)
+    const PLAYBACK_LEAD_STEP_S = 0.1;  // each underrun grows the buffer by this much…
+    const PLAYBACK_LEAD_MAX_S = 0.5;   // …up to this, for the rest of the session
+    const PROBE_MS = 600;              // muted this long: mic still hearing speech → user, went quiet → echo
+    const MISSED_MS = 2500;            // after the user stops, wait this long for the server to react
 
     const params = new URLSearchParams(location.search);
     const DEBUG = params.has('debug');
     const SPEECH_RMS = Number(params.get('vad')) || 0.03;  // local detector level; tune with ?vad=
-    const log = (...args) => { if (DEBUG) console.log('[voice]', ...args); };
+    const DEBUG_LINES = 15;
+    function log(msg, data) {
+        if (!DEBUG) return;
+        console.log('[voice]', msg, data || '');
+        const panel = document.getElementById('voice-debug');
+        if (!panel) return;
+        const line = document.createElement('div');
+        line.textContent = `${(performance.now() / 1000).toFixed(1)}s ${msg} ${data ? JSON.stringify(data) : ''}`;
+        panel.appendChild(line);
+        while (panel.childElementCount > DEBUG_LINES) panel.firstElementChild.remove();
+    }
 
     const SYSTEM_PROMPT = `You are the voice shopping assistant for VoiceCart, an online umbrella store.
 You are talking out loud, so never use markdown, lists, emojis or symbols. Keep replies to one or two short sentences.
@@ -36,6 +49,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     // Starting point from the docs; tune by ear.
     const TURN_DETECTION = { vad_threshold: 0.5, min_silence: 1400, max_silence: 4000, interrupt_response: true };
+    if (params.has('svad')) TURN_DETECTION.vad_threshold = Number(params.get('svad'));
     // Server-side barge-in delay (0–1000 ms); only sent when set with ?idelay= while tuning.
     if (params.has('idelay')) TURN_DETECTION.interruption_delay = Number(params.get('idelay'));
 
@@ -51,7 +65,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     let micStream = null;
     let micSource = null;
     let micNode = null;
-    let outGain = null;                // all agent audio goes through this, so it can be ducked
+    let outGain = null;                // all agent audio goes through this, so it can be muted instantly
     let sessionReady = false;
     let status = 'idle';
     // Bumped on every start/stop; async work from an older attempt checks it and bails out.
@@ -63,8 +77,14 @@ If nothing matches, say so and offer to relax one requirement, such as the price
     // False from the moment the user barges in until the next reply starts, so audio chunks
     // of the interrupted reply that are still in flight are dropped instead of played.
     let acceptAudio = true;
-    let duckTimer = null;
-    let duckedAt = 0;                  // performance.now() when the current duck began, 0 when not ducked
+    let leadS = PLAYBACK_LEAD_S;
+
+    // Local barge-in state: 'none' → 'probing' (muted, deciding user vs echo) → 'committed' (reply dropped)
+    let barge = 'none';
+    let userSpeaking = false;          // local detector: between 'speech' and 'silence'
+    let mutedAt = 0;
+    let probeTimer = null;
+    let missedTimer = null;
 
     // Debug counters for the current reply
     let replyStartedAt = 0;
@@ -168,11 +188,12 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             case 'input.speech.started':
                 // Barge-in: cut the agent off the moment the user starts talking.
                 turnActive = true;
-                log('speech.started', {
+                log('server speech.started', {
                     msIntoReply: sinceReply(),
                     audioPlaying: playing.size > 0,
-                    msAfterLocalDuck: duckedAt ? Math.round(performance.now() - duckedAt) : null,
+                    msAfterLocalMute: mutedAt ? Math.round(performance.now() - mutedAt) : null,
                 });
+                resetBarge();
                 acceptAudio = false;
                 stopPlayback();
                 showUser('…');
@@ -180,6 +201,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
             case 'transcript.user.delta':
             case 'transcript.user':
+                clearTimeout(missedTimer);
                 if (evt.text) showUser(evt.text);
                 break;
 
@@ -190,6 +212,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 nextStartTime = 0;  // a fresh reply gets the full jitter buffer
                 replyStartedAt = performance.now();
                 droppedChunks = 0;
+                resetBarge();
                 break;
 
             case 'reply.audio':
@@ -214,7 +237,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
                 turnActive = false;
                 log('reply.done', { status: evt.status, msIntoReply: sinceReply(), droppedChunks });
                 if (evt.status === 'completed' && droppedChunks) {
-                    log(`false barge-in: reply completed but ${droppedChunks} chunks were muted after speech.started`);
+                    log('reply completed on the server, but its end was not played (barge-in)', { droppedChunks });
                 }
                 if (evt.status === 'interrupted') {
                     stopPlayback();
@@ -278,8 +301,8 @@ If nothing matches, say so and offer to relax one requirement, such as the price
             processorOptions: { speechRms: SPEECH_RMS },
         });
         micNode.port.onmessage = e => {
-            if (e.data === 'speech') { duck(); return; }
-            if (e.data === 'silence') { userWentQuiet(); return; }
+            if (e.data === 'speech') { onLocalSpeech(); return; }
+            if (e.data === 'silence') { onLocalSilence(); return; }
             if (!sessionReady) return;
             send({ type: 'input.audio', audio: bytesToBase64(new Uint8Array(e.data)) });
         };
@@ -303,8 +326,16 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
         const now = audioCtx.currentTime;
         if (nextStartTime < now) {
-            if (nextStartTime) log('underrun', { gapMs: Math.round((now - nextStartTime) * 1000), msIntoReply: sinceReply() });
-            nextStartTime = now + PLAYBACK_LEAD_S;
+            if (nextStartTime) {
+                // Ran dry mid-reply: the network is jittery, so keep a bigger buffer from now on.
+                leadS = Math.min(PLAYBACK_LEAD_MAX_S, leadS + PLAYBACK_LEAD_STEP_S);
+                log('underrun', {
+                    gapMs: Math.round((now - nextStartTime) * 1000),
+                    msIntoReply: sinceReply(),
+                    newBufferMs: Math.round(leadS * 1000),
+                });
+            }
+            nextStartTime = now + leadS;
         }
         src.start(nextStartTime);
         nextStartTime += buffer.duration;
@@ -324,35 +355,61 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         }
         playing.clear();
         nextStartTime = 0;
-        unduck();
+        setGain(1);  // sources are gone; the next reply plays at full volume
         if (status === 'speaking') setStatus('listening');
     }
 
-    /* Instant local reaction to the user's voice; the server event decides whether it is a real barge-in */
-    function duck() {
-        if (!outGain || !playing.size) return;
-        log('local speech → duck', { msIntoReply: sinceReply() });
-        outGain.gain.setTargetAtTime(DUCK_GAIN, audioCtx.currentTime, 0.01);
-        duckedAt = performance.now();
-        // Held while the user keeps talking; this cap only matters if the "speech" never ends (echo, noise).
-        restoreAfter(DUCK_MAX_MS, `no server speech after ${DUCK_MAX_MS} ms → restore volume`);
+    /* ── LOCAL BARGE-IN ─────────────────────────────────────────── */
+    function onLocalSpeech() {
+        userSpeaking = true;
+        clearTimeout(missedTimer);
+        if (barge !== 'none' || !playing.size) return;
+        // Mute first, decide later: silence also stops the echo canceller from suppressing the user's voice.
+        barge = 'probing';
+        mutedAt = performance.now();
+        setGain(0);
+        log('local speech → mute', { msIntoReply: sinceReply() });
+        probeTimer = setTimeout(endProbe, PROBE_MS);
     }
 
-    function userWentQuiet() {
-        if (!duckedAt) return;
-        restoreAfter(DUCK_TAIL_MS, 'user went quiet, no server speech → restore volume');
+    function onLocalSilence() {
+        userSpeaking = false;
+        if (barge === 'probing') {
+            // The "speech" stopped as soon as the agent went quiet: it was the agent's own echo.
+            clearTimeout(probeTimer);
+            barge = 'none';
+            setGain(1);
+            log('went quiet while muted → echo, resume', { msMuted: Math.round(performance.now() - mutedAt) });
+        } else if (barge === 'committed') {
+            missedTimer = setTimeout(missedUser, MISSED_MS);
+        }
     }
 
-    function restoreAfter(ms, reason) {
-        clearTimeout(duckTimer);
-        duckTimer = setTimeout(() => { log(reason); unduck(); }, ms);
+    function endProbe() {
+        if (barge !== 'probing' || !userSpeaking) return;
+        // Still talking with the agent silent: the user is interrupting. Drop the rest of this reply.
+        barge = 'committed';
+        acceptAudio = false;
+        stopPlayback();
+        log('user still talking → drop reply, wait for answer');
     }
 
-    function unduck() {
-        clearTimeout(duckTimer);
-        duckTimer = null;
-        duckedAt = 0;
-        if (outGain) outGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.05);
+    function missedUser() {
+        // The server never reacted to what the user said; tell them instead of leaving dead air.
+        log('no server reaction after user spoke → ask to repeat');
+        barge = 'none';
+        if (status === 'listening') setStatus('listening', 'Sorry, I missed that. Please say it again.');
+    }
+
+    function resetBarge() {
+        clearTimeout(probeTimer);
+        clearTimeout(missedTimer);
+        barge = 'none';
+        mutedAt = 0;
+    }
+
+    function setGain(value) {
+        if (outGain) outGain.gain.setTargetAtTime(value, audioCtx.currentTime, 0.01);
     }
 
     function sinceReply() {
@@ -374,6 +431,7 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         showUser('');
         showAgent('');
         acceptAudio = true;
+        leadS = PLAYBACK_LEAD_S;
         try {
             // Created inside the click gesture so it is allowed to play sound. Native sample rate:
             // the mic worklet resamples to 24 kHz, and playback buffers are created at 24 kHz.
@@ -434,6 +492,8 @@ If nothing matches, say so and offer to relax one requirement, such as the price
         if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
         outGain = null;
         sessionReady = false;
+        resetBarge();
+        userSpeaking = false;
         turnActive = false;
         pendingResults = [];
         turnGen++;
@@ -447,6 +507,13 @@ If nothing matches, say so and offer to relax one requirement, such as the price
 
     function init() {
         $('#voice-btn').addEventListener('click', toggle);
+        if (DEBUG) {
+            const panel = document.createElement('div');
+            panel.id = 'voice-debug';
+            panel.className = 'voice-debug';
+            document.body.appendChild(panel);
+            log('debug on', { localVad: SPEECH_RMS, turnDetection: TURN_DETECTION });
+        }
         $('#hero-voice-btn').addEventListener('click', start);
         window.addEventListener('pagehide', () => {
             if (ws && ws.readyState === WebSocket.OPEN) send({ type: 'session.end' });

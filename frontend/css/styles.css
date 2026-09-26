@@ -1329,3 +1329,22 @@ body { padding-bottom: 120px; }   /* room so the dock never covers the last row 
     .header-inner { gap: 0.75rem; }
     .product-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 }
+
+/* On-screen audio timing log, only shown with ?debug=1 */
+.voice-debug {
+    position: fixed;
+    top: 72px;
+    left: 12px;
+    z-index: 1600;
+    width: min(440px, calc(100vw - 24px));
+    max-height: 45vh;
+    overflow: hidden;
+    padding: 0.5rem 0.625rem;
+    font: 11px/1.45 ui-monospace, Consolas, monospace;
+    color: #e5e5e5;
+    background: rgba(0, 0, 0, 0.78);
+    border-radius: 8px;
+    pointer-events: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
