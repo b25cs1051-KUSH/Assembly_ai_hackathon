@@ -1348,3 +1348,75 @@ body { padding-bottom: 120px; }   /* room so the dock never covers the last row 
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* =================================================================
+   VOICE AGENT FEEDBACK — tool chip, walkthrough numbers, pros/cons
+   ================================================================= */
+.tool-chip {
+    position: fixed;
+    top: 84px;
+    left: 50%;
+    transform: translate(-50%, -8px);
+    z-index: 1600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    box-shadow: var(--shadow-glow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.tool-chip.visible { opacity: 1; transform: translate(-50%, 0); }
+.tool-chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: tool-chip-pulse 1s ease-in-out infinite;
+}
+@keyframes tool-chip-pulse { 50% { opacity: 0.3; } }
+
+.card-position {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.875rem;
+    box-shadow: var(--shadow-md);
+}
+.product-card.agent-focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    box-shadow: var(--shadow-glow);
+}
+
+.badge.bump { animation: badge-bump 0.4s ease; }
+@keyframes badge-bump { 40% { transform: scale(1.4); } }
+
+.proscons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+.proscons h3 { font-size: 0.9rem; margin-bottom: 0.5rem; }
+.proscons ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
+.proscons li { font-size: 0.875rem; color: var(--text-secondary); padding-left: 1.2rem; position: relative; }
+.proscons .pros li::before { content: "+"; position: absolute; left: 0; color: var(--success); font-weight: 700; }
+.proscons .cons li::before { content: "−"; position: absolute; left: 0; color: var(--danger); font-weight: 700; }
+@media (max-width: 480px) { .proscons { grid-template-columns: 1fr; } }

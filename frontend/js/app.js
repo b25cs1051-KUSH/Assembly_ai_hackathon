@@ -147,6 +147,15 @@ const App = (() => {
         UI.openPanel('compare-overlay', 'compare-modal');
     }
 
+    /* Replaces the compare selection with these ids and opens the modal (used by the voice agent) */
+    function compareProducts(ids) {
+        state.compareSet = new Set(ids.map(String));
+        UI.updateBadge('compare-badge', state.compareSet.size);
+        $('#compare-btn').disabled = state.compareSet.size < 2;
+        UI.renderGrid(state.filtered, state.compareSet);
+        return openCompare();
+    }
+
     /* ── DETAIL ─────────────────────────────────────────────────── */
     function openDetail(id) {
         const p = productById(id);
@@ -156,16 +165,17 @@ const App = (() => {
     }
 
     /* ── CART ────────────────────────────────────────────────────── */
-    function addToCart(id) {
+    function addToCart(id, qty = 1) {
         const existing = state.cart.find(i => i.id === id);
         if (existing) {
-            existing.qty += 1;
+            existing.qty += qty;
         } else {
-            state.cart.push({ id, qty: 1 });
+            state.cart.push({ id, qty });
         }
         syncCart();
+        UI.bumpBadge('cart-badge');
         const p = productById(id);
-        UI.toast(`${p ? p.name : 'Item'} added to cart`);
+        UI.toast(`${qty > 1 ? `${qty} × ` : ''}${p ? p.name : 'Item'} added to cart`);
     }
 
     function removeFromCart(id) {
@@ -184,6 +194,24 @@ const App = (() => {
         const totalQty = state.cart.reduce((s, i) => s + i.qty, 0);
         UI.updateBadge('cart-badge', totalQty);
         UI.renderCart(state.cart, state.products);
+        if (isCheckoutOpen()) UI.renderCheckout(state.cart, state.products);
+    }
+
+    /* Same numbers the cart drawer and checkout show (8% tax, free shipping) */
+    function getCartSummary() {
+        const items = state.cart.map(i => {
+            const p = productById(i.id);
+            return { id: i.id, name: p.name, qty: i.qty, lineTotal: +(p.price * i.qty).toFixed(2) };
+        });
+        const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
+        const tax = subtotal * 0.08;
+        return {
+            items,
+            itemCount: items.reduce((s, i) => s + i.qty, 0),
+            subtotal: +subtotal.toFixed(2),
+            tax: +tax.toFixed(2),
+            total: +(subtotal + tax).toFixed(2),
+        };
     }
 
     function openCart() {
@@ -200,13 +228,19 @@ const App = (() => {
         }, 300);
     }
 
+    function isCheckoutOpen() {
+        return $('#checkout-modal').classList.contains('open');
+    }
+
+    /* Returns the order number shown on the confirmation screen */
     function placeOrder() {
+        const orderNumber = `VC-${Date.now().toString().slice(-6)}`;
+        $('#confirm-order-number').textContent = `Order number ${orderNumber}`;
+        state.cart = [];
         UI.closePanel('checkout-overlay', 'checkout-modal');
-        setTimeout(() => {
-            UI.openPanel('confirm-overlay', 'confirm-modal');
-            state.cart = [];
-            syncCart();
-        }, 300);
+        syncCart();
+        setTimeout(() => UI.openPanel('confirm-overlay', 'confirm-modal'), 300);
+        return orderNumber;
     }
 
     /* ── EVENT WIRING ───────────────────────────────────────────── */
@@ -304,6 +338,11 @@ const App = (() => {
         addToCart,
         removeFromCart,
         updateQty,
+        getCartSummary,
+        compareProducts,
+        closeAllPanels,
+        openCheckout,
+        isCheckoutOpen,
         placeOrder,
     };
 })();

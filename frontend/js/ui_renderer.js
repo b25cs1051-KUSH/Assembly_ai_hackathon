@@ -83,6 +83,17 @@ const UI = (() => {
                 <p class="detail-desc">${product.description}</p>
                 <button class="btn-primary detail-add-btn" onclick="App.addToCart('${product.id}')">Add to Cart</button>
 
+                <div class="proscons">
+                    <div class="proscons-col pros">
+                        <h3>Pros</h3>
+                        <ul>${(product.pros || []).map(t => `<li>${t}</li>`).join('')}</ul>
+                    </div>
+                    <div class="proscons-col cons">
+                        <h3>Cons</h3>
+                        <ul>${(product.cons || []).map(t => `<li>${t}</li>`).join('')}</ul>
+                    </div>
+                </div>
+
                 <div class="specs-section">
                     <h3>Specifications</h3>
                     <div class="specs-grid">
@@ -283,6 +294,65 @@ const UI = (() => {
         badge.classList.toggle('visible', count > 0);
     }
 
+    /* Replays the badge's pop animation (cart changes made by voice should be visible) */
+    function bumpBadge(id) {
+        const badge = document.getElementById(id);
+        if (!badge) return;
+        badge.classList.remove('bump');
+        void badge.offsetWidth;  // restart the animation
+        badge.classList.add('bump');
+    }
+
+    /* ── VOICE AGENT FEEDBACK ───────────────────────────────────── */
+    /* Numbers the cards the agent is about to walk through: 1, 2, 3 */
+    function markPositions(ids) {
+        document.querySelectorAll('.card-position').forEach(el => el.remove());
+        ids.forEach((id, i) => {
+            const wrap = document.querySelector(`.product-card[data-id="${id}"] .card-image-wrap`);
+            if (!wrap) return;
+            const tag = document.createElement('span');
+            tag.className = 'card-position';
+            tag.textContent = i + 1;
+            wrap.appendChild(tag);
+        });
+    }
+
+    /* Outlines the card the agent is talking about */
+    function highlightCard(id) {
+        document.querySelectorAll('.product-card.agent-focus').forEach(el => el.classList.remove('agent-focus'));
+        const card = document.querySelector(`.product-card[data-id="${id}"]`);
+        if (card) card.classList.add('agent-focus');
+    }
+
+    /* "Agent is doing X" chip; stays up at least MIN_CHIP_MS so fast tools are still visible */
+    const MIN_CHIP_MS = 1200;
+    let chipShownAt = 0;
+    let chipTimer;
+    function toolChip() {
+        let chip = document.getElementById('tool-chip');
+        if (!chip) {
+            chip = document.createElement('div');
+            chip.id = 'tool-chip';
+            chip.className = 'tool-chip';
+            chip.setAttribute('role', 'status');
+            document.body.appendChild(chip);
+        }
+        return chip;
+    }
+
+    function showToolChip(label) {
+        clearTimeout(chipTimer);
+        const chip = toolChip();
+        chip.innerHTML = `<span class="tool-chip-dot"></span>${label}`;
+        chip.classList.add('visible');
+        chipShownAt = Date.now();
+    }
+
+    function hideToolChip() {
+        const wait = Math.max(0, MIN_CHIP_MS - (Date.now() - chipShownAt));
+        chipTimer = setTimeout(() => toolChip().classList.remove('visible'), wait);
+    }
+
     /* ── TOAST ──────────────────────────────────────────────────── */
     function toast(message) {
         const container = $('#toast-container');
@@ -317,6 +387,11 @@ const UI = (() => {
         renderCart,
         renderCheckout,
         updateBadge,
+        bumpBadge,
+        markPositions,
+        highlightCard,
+        showToolChip,
+        hideToolChip,
         toast,
         openPanel,
         closePanel,
