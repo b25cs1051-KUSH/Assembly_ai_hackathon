@@ -15,7 +15,7 @@ sequenceDiagram
     A-->>S: single-use token
     S-->>B: { token }
     B->>A: WebSocket wss://agents.assemblyai.com/v1/ws?token=...
-    B->>A: session.update (prompt, greeting, 7 tools, keyterms, turn_detection)
+    B->>A: session.update (prompt, greeting, 8 tools, keyterms, turn_detection)
     A-->>B: session.ready
     loop every 50 ms while the mic is on
         B->>A: input.audio (PCM16, 24 kHz, base64)
@@ -35,7 +35,7 @@ sequenceDiagram
 | `backend/main.py` | `GET /api/token`, `GET /api/products`, `GET /api/products/{id}`, `POST /api/products/compare`, static files |
 | `backend/services/product_service.py` | Loads `data/products.json` (15 umbrellas) |
 | `frontend/js/voice_agent.js` | WebSocket session, system prompt, event handling, barge-in, acknowledgements, memory |
-| `frontend/js/agent_tools.js` | The 7 tool definitions and their handlers |
+| `frontend/js/agent_tools.js` | The 8 tool definitions and their handlers |
 | `frontend/js/app.js` | Store state: filters, compare set, cart, checkout |
 | `frontend/js/ui_renderer.js` | Renders the grid, panels, agent log and "Try saying" guide |
 | `frontend/js/mic_worklet.js` | Mic capture: resample to 24 kHz, PCM16, local speech detector |
@@ -47,7 +47,7 @@ On socket open the page sends one `session.update`:
 
 - `system_prompt`: voice rules (no markdown, answers as long as the question needs, round prices), grounding (only state what a tool returned), and how to use each tool.
 - `greeting`: a first-visit greeting, or "Welcome back" when the visit already has history.
-- `tools`: the 7 client-side tools below, built from the loaded catalog so brand and product id enums match it.
+- `tools`: the 8 client-side tools below, built from the loaded catalog so brand and product id enums match it.
 - `input.keyterms`: "VoiceCart" and every brand name, so speech recognition spells "TUMELLA" or "SIEPASA" the way the catalog does.
 - `input.turn_detection`: `vad_threshold 0.5`, `min_silence 1000`, `max_silence 2000`, `interrupt_response true`. Measured with `scripts/voice_latency.py`: lowering `max_silence` from 4000 to 2000 cut time to first audio by about 2.5 s, and lower values made reply audio arrive with long gaps.
 
@@ -62,6 +62,7 @@ Tools run in the browser because each one changes the page. Handlers return comp
 | `compare_products` | Opens the comparison table for 2 or 3 products | Each product by column |
 | `update_compare` | Removes, adds or clears products in the open comparison | The updated columns |
 | `update_cart` | Adds, removes or sets a quantity; animates the cart badge | Cart items and total |
+| `show_cart` | Opens the cart drawer | Cart items and total |
 | `checkout` | Opens the checkout summary, adding a named product first | Items and total; the agent must read the total and ask to confirm |
 | `place_order` | Places the order and shows the confirmation | Order number; refused unless `user_confirmed` is true and checkout is open |
 
