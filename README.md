@@ -13,18 +13,26 @@ VoiceCart AI provides a real-time, voice-native shopping experience. By embeddin
 
 The browser talks to AssemblyAI's Voice Agent API directly over a WebSocket. Our server only mints a single-use token, so the API key never reaches the browser. Mic audio goes up as 24 kHz PCM16, and the agent's reply comes back as 24 kHz PCM16 chunks that we schedule with the Web Audio API. Getting this to feel like a real conversation took four fixes.
 
-### 1. Smooth playback: a jitter buffer
-Reply audio arrives in small chunks over the network, and each chunk is scheduled right after the previous one. With a 50 ms head start, one late chunk left the schedule empty and made an audible gap, which sounded like stutter. Each reply now starts 200 ms ahead, and so does playback after any gap. That absorbs normal network jitter and costs about 150 ms before the first word.
+### 1. Smooth playback: an adaptive jitter buffer
+Reply audio arrives in small chunks over the network, and each chunk is scheduled right after the previous one. With a 50 ms head start, one late chunk left the schedule empty and made an audible gap, which sounded like stutter. Each reply now starts 200 ms ahead. Every time playback still runs dry, the buffer grows by 100 ms, up to 500 ms, for the rest of the session. A steady connection keeps the short delay, and a jittery one trades a little latency for smooth speech.
 
-### 2. Instant barge-in: local ducking
-AssemblyAI decides when the user has started speaking (`input.speech.started`). That decision needs a network round trip plus a moment of speech, so waiting for it alone makes the agent talk over the user for a noticeable beat. We add a small energy detector to the mic `AudioWorklet`:
+### 2. Instant barge-in: mute and listen
+AssemblyAI decides when the user has started speaking (`input.speech.started`). That decision needs a network round trip plus a moment of speech. While the agent is talking, the browser's echo canceller also turns down the user's voice (double-talk suppression), which can delay or hide the user's speech from the server. We add a small energy detector to the mic `AudioWorklet` and handle the first moments of an interruption locally:
 
-- When the mic level stays above a threshold for 60 ms, it posts `speech`, and the page drops the agent's volume to 15% right away. The user hears the agent back off as soon as they speak.
-- The volume stays down while the user keeps talking. After 300 ms of quiet the worklet posts `silence`, and the volume returns 400 ms later if the server never confirmed speech.
-- When the server sends `input.speech.started`, all queued audio is stopped and dropped. The stop always comes from the server.
+1. **Mute.** When the mic level stays above a threshold for 60 ms, the page mutes the agent immediately. The user hears it stop as they start talking. The echo canceller also stops suppressing their voice, so the server hears them clearly.
+2. **Listen for 600 ms.** Echo exists only while the agent is audible. If the mic goes quiet while the agent is muted, the sound was the agent's own voice, so the volume comes back. The words played during that half second of mute are lost.
+3. **Commit.** If the user is still talking after 600 ms, it's a real interruption. The rest of the reply is dropped, and the agent stays silent until it answers the user's new message.
+4. **Safety net.** If the server doesn't react within 2.5 s of the user going quiet, the page asks them to repeat instead of leaving silence.
 
-### 3. Echo safety: the local detector can only duck, never stop
-On laptop speakers the agent's own voice can leak into the mic. Browser echo cancellation removes most of it, but if some gets through and trips the local detector, the worst case is a dip in volume, capped at 3 s. Only AssemblyAI's server-side detection can stop the agent, so the agent never interrupts itself because of our local detector.
+When the server sends `input.speech.started`, all queued audio is stopped and dropped as well.
+
+### 3. Echo safety: layered defence
+On laptop speakers the agent's voice can leak into the mic. Four layers keep the agent from interrupting itself:
+
+1. Browser echo cancellation (`echoCancellation: true`) removes the page's own output from the mic signal. Noise suppression stays off, as AssemblyAI recommends, because the server denoises.
+2. The mute-and-listen check in section 2 catches echo that gets through. A false trigger costs about half a second of muted speech, not the whole reply.
+3. AssemblyAI's server-side VAD (`vad_threshold`) decides whether a sound is speech before it interrupts.
+4. Headphones remove echo entirely. The demo video is recorded with a headset.
 
 ### 4. Tool results that respect the conversation
 Tools run in the browser and update the page, for example filtering the product grid. Their results go back to the agent only after `reply.done`, as the API requires. If the user interrupted that reply, the results are thrown away so the agent never answers a question the user has moved past.
@@ -34,8 +42,9 @@ Add these to the URL to tune the pipeline without redeploying:
 
 | Parameter | Effect |
 |---|---|
-| `?debug=1` | Logs `[voice]` timing to the console: playback gaps, local ducks, server speech events (with the delay after the local duck), reply status, and false barge-ins. |
-| `&vad=0.03` | Local detector threshold (mic RMS, 0–1). Raise it if the agent's own voice causes ducks, and lower it if your voice doesn't. |
+| `?debug=1` | Shows an on-screen log (top left) and writes `[voice]` lines to the console: playback gaps and buffer growth, local mutes and echo checks, server speech events with the delay after the local mute, and reply status. |
+| `&vad=0.03` | Local detector threshold (mic RMS, 0–1). Raise it if the agent's own voice causes mutes, and lower it if your voice doesn't. |
+| `&svad=0.5` | Overrides AssemblyAI's `vad_threshold` (0–1). |
 | `&idelay=0` | Sends `interruption_delay` (0–1000 ms) to AssemblyAI's turn detection. |
 
 ## Supported Voice Commands
