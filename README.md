@@ -1,10 +1,20 @@
 # VoiceCart AI
 
+![VoiceCart AI: talk to the store, it shops with you](docs/assets/cover.png)
+
 **Talk to the store and it answers out loud while the page changes as you speak: search, compare, ask about reviews, fill the cart and check out without touching a button.**
 
-**Live demo:** https://voicecart-ai-o76d.onrender.com/ (Chrome or Edge, allow the microphone; headphones give the cleanest barge-in)
+**Try it live:** https://voicecart-ai-o76d.onrender.com/ (Chrome or Edge, allow the microphone; headphones give the cleanest barge-in)
 
 Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
+
+![Saying "compare all of these three" opens a comparison table with the best values marked](docs/assets/demo-compare.gif)
+
+## Why it matters
+
+- **Stores have search boxes, not salespeople.** A question you would ask a shop assistant in one sentence becomes a dozen taps. About 70% of online carts are abandoned ([Baymard Institute](https://baymard.com/lists/cart-abandonment-rate), average of 50 studies).
+- **Screens shut people out.** At least 2.2 billion people have a vision impairment ([WHO](https://www.who.int/news-room/fact-sheets/detail/blindness-and-visual-impairment)). With VoiceCart, shopping works without touching the screen.
+- **It fits an existing store.** The agent runs in the browser. A store only needs a product API and a token endpoint, so the voice layer sits on top of the storefront it already has.
 
 ## Try saying
 
@@ -24,14 +34,20 @@ Press the mic, then say these in order:
 |---|---|
 | Voice Agent API (one WebSocket) | Speech-to-text, the LLM, and text-to-speech in one session between the browser and AssemblyAI |
 | Temporary tokens (`GET /v1/token`) | Our server mints a single-use token per session, so the API key never reaches the browser |
-| Client-side tool calling | 7 JSON-Schema tools (`search_products`, `show_product`, `compare_products`, `update_compare`, `update_cart`, `checkout`, `place_order`) run in the browser and change the page. The agent only states prices, specs and reviews a tool returned |
+| Client-side tool calling | 8 JSON-Schema tools (`search_products`, `show_product`, `compare_products`, `update_compare`, `update_cart`, `show_cart`, `checkout`, `place_order`) run in the browser and change the page. The agent only states prices, specs and reviews a tool returned |
 | `input.keyterms` | Every brand name, so recognition spells "TUMELLA" or "SIEPASA" the way the catalog does |
 | `input.turn_detection` | `min_silence 1000`, `max_silence 2000`, tuned by measurement (section 6 below) |
 | Barge-in (`interrupt_response`, `input.speech.started`, `reply.done` interrupted) | The user can cut in at any time and the agent stops at once |
 | `greeting` and `conversation.message` | A returning session gets "Welcome back" plus the earlier conversation, the results on screen and the cart |
 | The agent's own voice | The acknowledgement clips ("Sure, let me look.") are recorded from the Voice Agent API, so they match the live voice |
 
-How it fits together: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## How it works
+
+![How it works: the browser talks to AssemblyAI directly; our server only issues a one-time token](docs/assets/how-it-works.png)
+
+![Sentence, tool, screen: every store action is a tool call, and the agent only answers from what the tool returned](docs/assets/sentence-tool-screen.png)
+
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Run locally
 
