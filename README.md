@@ -8,8 +8,6 @@
 
 Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
 
-![Saying "compare all of these three" opens a comparison table with the best values marked](docs/assets/demo-compare.gif)
-
 ## Why it matters
 
 - **Stores have search boxes, not salespeople.** A question you would ask a shop assistant in one sentence becomes a dozen taps. About 70% of online carts are abandoned ([Baymard Institute](https://baymard.com/lists/cart-abandonment-rate), average of 50 studies).
