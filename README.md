@@ -6,6 +6,8 @@
 
 **Try it live:** https://voicecart-ai-o76d.onrender.com/ (Chrome or Edge, allow the microphone; headphones give the cleanest barge-in)
 
+**Watch the 3-minute video:** https://youtu.be/I15PKSQqyfQ
+
 Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
 
 ## Why it matters
