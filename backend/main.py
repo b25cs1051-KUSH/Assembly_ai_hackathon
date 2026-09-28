@@ -1,16 +1,19 @@
 """VoiceCart AI — FastAPI Backend Server."""
 
 import logging
+import secrets
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend import config
 from backend.services.product_service import (
+    add_product,
     compare_products,
     get_all_products,
     get_product_by_id,
@@ -51,6 +54,69 @@ async def api_compare(body: CompareRequest):
     """Accept an array of IDs and return comparison matrix payload."""
     result = compare_products(body.ids)
     return result
+
+
+class NewProductSpecs(BaseModel):
+    frame_material: str = Field(min_length=1, max_length=120)
+    canopy_size_inches: int = Field(gt=0, le=120)
+    wind_rating_mph: int = Field(ge=0, le=250)
+    weight_oz: float = Field(gt=0, le=200)
+    automatic_open: bool
+
+
+class NewProduct(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    brand: str = Field(min_length=1, max_length=80)
+    model: str = Field(min_length=1, max_length=120)
+    color: str = Field(min_length=1, max_length=60)
+    color_family: str = Field(min_length=1, max_length=60)
+    price: float = Field(gt=0, le=10000)
+    description: str = Field(min_length=1, max_length=1000)
+    image_url: str = Field(min_length=1, max_length=2000)
+    specs: NewProductSpecs
+    pros: list[str] = Field(default_factory=list, max_length=5)
+    cons: list[str] = Field(default_factory=list, max_length=5)
+
+
+@app.post("/api/admin/products", status_code=201)
+def api_add_product(body: NewProduct, x_admin_password: str = Header(default="")):
+    """Add a manually entered listing; no voice-agent action uses this endpoint."""
+    if not config.ADMIN_PASSWORD:
+        raise HTTPException(status_code=503, detail="Admin password is not configured")
+    if not secrets.compare_digest(x_admin_password, config.ADMIN_PASSWORD):
+        raise HTTPException(status_code=401, detail="Incorrect admin password")
+
+    product = body.model_dump() if hasattr(body, "model_dump") else body.dict()
+    product["specs"] = dict(product["specs"])
+    for key in ("name", "brand", "model", "color", "color_family", "description",
+                "image_url"):
+        product[key] = product[key].strip()
+    product["specs"]["frame_material"] = product["specs"]["frame_material"].strip()
+    product["pros"] = [item.strip() for item in product["pros"] if item.strip()]
+    product["cons"] = [item.strip() for item in product["cons"] if item.strip()]
+
+    text_values = [product[key] for key in ("name", "brand", "model", "color",
+                   "color_family", "description", "image_url")]
+    text_values += [product["specs"]["frame_material"], *product["pros"], *product["cons"]]
+    if any(not value or "<" in value or ">" in value for value in text_values):
+        raise HTTPException(status_code=422, detail="Fields cannot be blank or contain HTML")
+    if '"' in product["name"]:
+        raise HTTPException(status_code=422, detail="Product name cannot contain double quotes")
+    if any(len(item) > 160 for item in (*product["pros"], *product["cons"])):
+        raise HTTPException(status_code=422, detail="Pros and cons must be 160 characters or less")
+
+    image = urlparse(product["image_url"])
+    if (image.scheme not in ("http", "https") or not image.netloc
+            or any(char in product["image_url"] for char in ('"', "'", "`", "\\"))):
+        raise HTTPException(status_code=422, detail="Image URL must be a valid HTTP(S) URL")
+
+    product.update(rating=0, review_count=0, reviews=[],
+                   reviews_summary="No customer reviews yet.")
+    try:
+        return add_product(product)
+    except OSError:
+        logger.exception("Could not save product catalog")
+        raise HTTPException(status_code=503, detail="Catalog storage is unavailable")
 
 
 # ---------------------------------------------------------------------------

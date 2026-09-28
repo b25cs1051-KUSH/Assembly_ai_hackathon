@@ -1,12 +1,16 @@
 """Product data service — reads JSON dataset and provides query helpers."""
 
 import json
+import os
+import tempfile
+import threading
 from pathlib import Path
 
 DATA_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "products.json"
 
 _cache: list[dict] | None = None
 _cache_mtime: float | None = None
+_write_lock = threading.Lock()
 
 
 def load_products() -> list[dict]:
@@ -22,6 +26,37 @@ def load_products() -> list[dict]:
 
 def get_all_products() -> list[dict]:
     return load_products()
+
+
+def add_product(product: dict) -> dict:
+    """Append a product to the JSON catalog with a unique ID and an atomic replace."""
+    global _cache, _cache_mtime
+    with _write_lock:
+        with open(DATA_FILE, "r", encoding="utf-8") as source:
+            products = json.load(source)
+        next_id = max((int(p["id"]) for p in products), default=0) + 1
+        created = {"id": str(next_id), **product}
+        products.append(created)
+
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=DATA_FILE.parent,
+                prefix=".products-", suffix=".json", delete=False,
+            ) as temporary:
+                temp_path = temporary.name
+                json.dump(products, temporary, ensure_ascii=False, indent=2)
+                temporary.write("\n")
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.replace(temp_path, DATA_FILE)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+        _cache = products
+        _cache_mtime = DATA_FILE.stat().st_mtime
+        return created
 
 
 def get_product_by_id(product_id: str) -> dict | None:

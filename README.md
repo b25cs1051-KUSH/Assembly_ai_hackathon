@@ -49,6 +49,14 @@ Press the mic, then say these in order:
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Add umbrella listings
+
+Click the yellow **plus icon** in the top-right header to open the admin panel. Enter the admin password, product details, image URL, and specifications, then select **Add to catalog**. The product appears in the storefront immediately and is appended to `data/products.json` with a new ID. New listings start with zero reviews. This is a manual UI feature; the voice agent has no admin tool.
+
+Set `ADMIN_PASSWORD` in `.env` for local use and as a secret environment variable on the hosted service. If it is unset, the API refuses catalog writes. The admin password is sent only with the save request and is cleared from the form when the panel closes.
+
+The app writes to the server's local JSON file. On Render's free plan, filesystem changes are ephemeral and disappear when the service restarts or redeploys. Use a persistent disk or other durable catalog storage for lasting hosted listings; the checked-in `data/products.json` is not changed by hosted requests.
+
 ## Run locally
 
 Requires Python 3.10+ and an AssemblyAI API key.

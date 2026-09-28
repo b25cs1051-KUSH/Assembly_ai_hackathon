@@ -60,6 +60,12 @@ const App = (() => {
         initFilterControls();  // also applies the (reset) filters
     }
 
+    function showNewProduct(product) {
+        state.products.push(product);
+        initFilterControls();
+        $('#products-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
     /* Brand list and slider ranges come from the catalog, not hard-coded values */
     function initFilterControls() {
         const brands = [...new Set(state.products.map(p => p.brand))].sort((a, b) => a.localeCompare(b));
@@ -330,7 +336,7 @@ const App = (() => {
 
         /* Keyboard shortcut: / to focus search */
         document.addEventListener('keydown', e => {
-            if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+            if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) && !document.activeElement.isContentEditable) {
                 e.preventDefault();
                 $('#search-input').focus();
             }
@@ -374,6 +380,7 @@ const App = (() => {
         UI.closePanel('cart-overlay', 'cart-drawer');
         UI.closePanel('checkout-overlay', 'checkout-modal');
         UI.closePanel('confirm-overlay', 'confirm-modal');
+        if ($('#admin-modal').classList.contains('open')) Admin.close();
     }
 
     /* ── INIT ───────────────────────────────────────────────────── */
@@ -386,6 +393,7 @@ const App = (() => {
 
     /* ── PUBLIC API (inline onclick handlers and agent tools) ────── */
     return {
+        showNewProduct,
         getProducts: () => state.products,
         getVisible: () => state.filtered,
         getCompareIds: () => [...state.compareSet],

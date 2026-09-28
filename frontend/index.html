@@ -6,7 +6,7 @@
     <title>VoiceCart AI — Premium Umbrellas</title>
     <meta name="description" content="Voice-powered premium umbrella store. Explore handpicked umbrellas from top brands.">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230a84ff' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M2 12a10 10 0 0 1 20 0z'/%3E%3Cpath d='M12 12v7a2 2 0 0 0 4 0'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="css/styles.css?v=17">
+    <link rel="stylesheet" href="css/styles.css?v=18">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
@@ -36,6 +36,11 @@
             </div>
 
             <nav class="header-actions">
+                <button class="action-btn" id="admin-btn" type="button" title="Add an umbrella" aria-label="Open admin panel" aria-haspopup="dialog" aria-controls="admin-modal">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v10M7 12h10"/>
+                    </svg>
+                </button>
                 <button class="action-btn" id="compare-btn" title="Compare products" disabled>
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
@@ -223,6 +228,81 @@
         </div>
     </div>
 
+    <!-- ADMIN: manual catalog listing -->
+    <div class="modal-overlay" id="admin-overlay"></div>
+    <section class="modal admin-modal" id="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-title" aria-hidden="true">
+        <div class="modal-header">
+            <div>
+                <p class="admin-eyebrow">Store catalog</p>
+                <h2 id="admin-title">Add an umbrella</h2>
+            </div>
+            <button class="modal-close" id="admin-close" type="button" aria-label="Close admin panel">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="admin-intro">Enter the details shoppers need to compare this umbrella. New listings appear in the catalog as soon as they are saved.</p>
+            <form id="admin-form">
+                <div class="admin-fields">
+                    <label class="admin-field admin-wide">Admin password
+                        <input name="admin_password" type="password" autocomplete="off" required>
+                    </label>
+                    <label class="admin-field">Product name
+                        <input name="name" maxlength="120" required placeholder="e.g. Metro Compact Umbrella">
+                    </label>
+                    <label class="admin-field">Brand
+                        <input name="brand" maxlength="80" required placeholder="e.g. Metro">
+                    </label>
+                    <label class="admin-field">Model
+                        <input name="model" maxlength="120" required placeholder="e.g. Metro Compact">
+                    </label>
+                    <label class="admin-field">Color
+                        <input name="color" maxlength="60" required placeholder="e.g. Navy Blue">
+                    </label>
+                    <label class="admin-field">Color family
+                        <input name="color_family" maxlength="60" required placeholder="e.g. Blue">
+                    </label>
+                    <label class="admin-field">Price (USD)
+                        <input name="price" type="number" min="0.01" max="10000" step="0.01" required placeholder="29.99">
+                    </label>
+                    <label class="admin-field admin-wide">Product image URL
+                        <input name="image_url" type="url" maxlength="2000" pattern="https?://.*" required placeholder="https://example.com/umbrella.jpg">
+                    </label>
+                    <label class="admin-field admin-wide">Description
+                        <textarea name="description" maxlength="1000" rows="3" required placeholder="What makes this umbrella useful?"></textarea>
+                    </label>
+                </div>
+                <h3 class="admin-section-title">Specifications</h3>
+                <div class="admin-fields">
+                    <label class="admin-field admin-wide">Frame material
+                        <input name="frame_material" maxlength="120" required placeholder="e.g. Fiberglass ribs, aluminum shaft">
+                    </label>
+                    <label class="admin-field">Canopy size (inches)
+                        <input name="canopy_size_inches" type="number" min="1" max="120" step="1" required>
+                    </label>
+                    <label class="admin-field">Wind rating (mph)
+                        <input name="wind_rating_mph" type="number" min="0" max="250" step="1" required>
+                    </label>
+                    <label class="admin-field">Weight (oz)
+                        <input name="weight_oz" type="number" min="0.1" max="200" step="0.1" required>
+                    </label>
+                    <label class="admin-field">Opening
+                        <select name="automatic_open"><option value="false">Manual</option><option value="true">Automatic</option></select>
+                    </label>
+                    <label class="admin-field">Pros <small>One per line, up to five</small>
+                        <textarea name="pros" rows="3" placeholder="Compact and light"></textarea>
+                    </label>
+                    <label class="admin-field">Cons <small>One per line, up to five</small>
+                        <textarea name="cons" rows="3" placeholder="Smaller canopy"></textarea>
+                    </label>
+                </div>
+                <p class="admin-note">New products start with no customer reviews.</p>
+                <p class="admin-status" id="admin-status" role="status" aria-live="polite"></p>
+                <button class="btn-primary admin-submit" id="admin-submit" type="submit">Add to catalog</button>
+            </form>
+        </div>
+    </section>
+
     <!-- ============================================================ -->
     <!-- TOAST NOTIFICATION                                           -->
     <!-- ============================================================ -->
@@ -271,7 +351,8 @@
     <!-- SCRIPTS                                                      -->
     <!-- ============================================================ -->
     <script src="js/ui_renderer.js?v=17"></script>
-    <script src="js/app.js?v=17"></script>
+    <script src="js/app.js?v=18"></script>
+    <script src="js/admin.js?v=1"></script>
     <script src="js/agent_tools.js?v=17"></script>
     <script src="js/voice_agent.js?v=17"></script>
     <script>

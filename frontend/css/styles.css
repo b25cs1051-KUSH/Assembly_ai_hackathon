@@ -2348,3 +2348,51 @@ body { line-height: 1.6; background: var(--clr-bg); color: var(--clr-text-primar
 @media (prefers-reduced-motion: reduce) {
     .voice-dock[data-status="listening"] .voice-btn { animation: none; box-shadow: 3px 3px 0 0 #0f172a, 0 0 0 4px rgba(219, 39, 119, 0.4); }
 }
+
+/* Manual catalog admin panel */
+#admin-btn { background: var(--clr-accent-yellow); }
+#admin-btn:hover { background: var(--clr-accent-yellow-hover); }
+.admin-modal { width: min(680px, 94vw); }
+.admin-modal .modal-body { overscroll-behavior: contain; }
+.admin-eyebrow {
+    margin: 0 0 0.2rem;
+    color: var(--clr-accent-pink-text-bg);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.admin-intro { margin: 0 0 1.25rem; color: var(--clr-text-secondary); line-height: 1.45; }
+.admin-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+.admin-wide { grid-column: 1 / -1; }
+.admin-field { display: flex; flex-direction: column; gap: 0.35rem; font-weight: 700; font-size: 0.875rem; }
+.admin-field small { display: block; color: var(--clr-text-secondary); font-weight: 400; }
+.admin-field input, .admin-field select, .admin-field textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 0.65rem 0.75rem;
+    border: var(--border-dark-sm);
+    border-radius: var(--radius-sm);
+    background: var(--clr-bg-card);
+    color: var(--clr-text-primary);
+    font: inherit;
+    font-weight: 400;
+}
+.admin-field textarea { resize: vertical; }
+.admin-field input:focus-visible, .admin-field select:focus-visible, .admin-field textarea:focus-visible {
+    outline: 3px solid var(--clr-accent-pink);
+    outline-offset: 2px;
+}
+.admin-section-title { margin: 1.5rem 0 0.8rem; font-size: 1rem; }
+.admin-note { margin: 1rem 0 0; color: var(--clr-text-secondary); font-size: 0.8rem; }
+.admin-status { min-height: 1.25rem; margin: 0.7rem 0; color: var(--danger-text); font-weight: 600; }
+.admin-submit { width: 100%; }
+.admin-submit:disabled { opacity: 0.6; cursor: wait; }
+@media (min-width: 900px) {
+    .admin-modal { width: min(680px, calc(100vw - var(--agent-w) - 48px)); }
+}
+@media (max-width: 600px) {
+    .admin-modal { max-height: calc(100dvh - 24px); }
+    .admin-fields { grid-template-columns: 1fr; }
+    .admin-wide { grid-column: auto; }
+}

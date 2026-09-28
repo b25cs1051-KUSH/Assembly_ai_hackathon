@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY", "").strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
 # Voice Agent API temporary-token limits (see /api/token)
 VOICE_TOKEN_EXPIRES_SECONDS = 60           # window to open the WebSocket after minting
