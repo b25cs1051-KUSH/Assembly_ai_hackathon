@@ -25,3 +25,19 @@ The existing video and umbrella site show the polished original journey. For a l
 - `backend/services/catalog_onboarding.py`: one-time structured preprocessing.
 - `data/catalogs/umbrella/` and `data/catalogs/dry_fruits/`: versioned validated bundles.
 - `tests/test_catalog.py` and `scripts/test_agent_tools.js`: two-category checks.
+
+## Corrections to the existing starter deck
+
+The untracked `docs/starter_presentation.pptx` is an earlier concept draft. Its slide copy does not describe the current repository. Use this replacement outline before submitting that deck:
+
+1. **VoiceCart AI:** voice shopping storefront with a reusable catalog engine. The umbrella video is one example deployment.
+2. **Shopper flow:** say a need, see matching products, compare recorded attributes, update the cart, and review a simulated checkout.
+3. **Live voice path:** browser microphone sends 24 kHz PCM audio directly to AssemblyAI over its Voice Agent WebSocket. FastAPI issues a temporary token and serves catalog/compare APIs; it does not proxy audio.
+4. **Turn and playback handling:** AssemblyAI handles speech, the model, and reply audio. Browser worklets capture/play audio and pause output quickly for interruptions.
+5. **Agent actions:** AssemblyAI calls eight client-side shopping tools. The browser updates the screen and returns catalog-grounded results. There is no Python intent state machine.
+6. **Two-category proof:** 15 umbrella records and a 3-item dry-fruit fixture use the same prompt/tool names. Each category has its own validated attribute rules and filters.
+7. **Onboarding architecture:** source JSON, one-time LLM proposal, Pydantic validation, immutable manifest/product bundle, then shared storefront and voice tools. No Redis or vector search is implemented.
+8. **Merchant path:** one active category per deployment; manual category-aware listing panel. Payments, inventory, fulfillment, durable hosted storage, and multi-merchant routing remain integration work.
+9. **Evidence and limitations:** cite the two-category tests and the existing umbrella video. Do not claim sub-300 ms voice replies, 60% faster discovery, millions of SKUs, or thousands of simultaneous sessions; the repository has no supporting measurements for those claims.
+
+The starter deck currently mentions 16 kHz audio, a backend WebSocket proxy, Redis, 22 umbrella products, and unmeasured performance/business percentages. Those are inconsistent with the checked-in implementation and should not appear in the submission.
