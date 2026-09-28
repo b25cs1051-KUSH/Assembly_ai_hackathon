@@ -4,6 +4,9 @@
 
 const UI = (() => {
     /* ── helper ─────────────────────────────────────────────────── */
+    const esc = CatalogRuntime.escapeHTML;
+    const money = p => CatalogRuntime.money(p.price, p.currency || App.getManifest()?.currency || 'USD');
+
     function stars(rating) {
         const full = Math.floor(rating);
         const half = rating % 1 >= 0.3 ? 1 : 0;
@@ -32,34 +35,85 @@ const UI = (() => {
         count.textContent = `${products.length} product${products.length > 1 ? 's' : ''}`;
 
         grid.innerHTML = products.map(p => `
-            <article class="product-card" data-id="${p.id}" onclick="App.openDetail('${p.id}')">
+            <article class="product-card" data-id="${esc(p.id)}" onclick="App.openDetail('${esc(p.id)}')">
                 <div class="card-image-wrap">
-                    <img src="${p.image_url}" alt="${p.name}" loading="lazy">
-                    <span class="card-brand-badge">${p.brand}</span>
+                    <img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy">
+                    <span class="card-brand-badge">${esc(p.brand || '')}</span>
                     <button class="card-compare-toggle ${compareSet.has(p.id) ? 'active' : ''}"
-                            data-compare-id="${p.id}" title="Compare"
-                            onclick="event.stopPropagation(); App.toggleCompare('${p.id}')">
+                            data-compare-id="${esc(p.id)}" title="Compare"
+                            onclick="event.stopPropagation(); App.toggleCompare('${esc(p.id)}')">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     </button>
                 </div>
                 <div class="card-body">
-                    <div class="card-name">${p.name}</div>
+                    <div class="card-name">${esc(p.name)}</div>
                     <div class="card-meta">
-                        <span class="card-price">$${p.price.toFixed(2)}</span>
-                        <span class="card-rating"><span class="star-icon">★</span> ${p.rating} (${p.review_count})</span>
+                        <span class="card-price">${money(p)}</span>
+                        ${p.rating === null ? '' : `<span class="card-rating"><span class="star-icon">★</span> ${p.rating} (${p.review_count})</span>`}
                     </div>
-                    <div class="card-desc">${p.description}</div>
+                    <div class="card-desc">${esc(p.description)}</div>
                 </div>
                 <div class="card-actions">
-                    <button class="btn-add-cart" onclick="event.stopPropagation(); App.addToCart('${p.id}')">Add to Cart</button>
+                    <button class="btn-add-cart" onclick="event.stopPropagation(); App.addToCart('${esc(p.id)}')">Add to Cart</button>
                 </div>
             </article>
         `).join('');
     }
 
+    function renderGenericDetail(product, variants) {
+        const manifest = App.getManifest();
+        const attributes = manifest.attributes.filter(rule => product.attributes[rule.key] !== undefined);
+        const variantHTML = variants.length > 1 && product.variant_value ? `
+            <div class="detail-colors">
+                <span class="detail-colors-label">Option: <strong>${esc(product.variant_value)}</strong></span>
+                <div class="detail-color-options">
+                    ${variants.map(item => `<button class="color-option ${item.id === product.id ? 'active' : ''}"
+                        ${item.id === product.id ? 'aria-current="true"' : `onclick="App.openDetail('${esc(item.id)}')"`}>
+                        ${esc(item.variant_value || item.name)} <span class="color-option-price">${money(item)}</span>
+                    </button>`).join('')}
+                </div>
+            </div>` : '';
+        const reviews = (product.reviews || []).map(review => `
+            <div class="review-card"><div class="review-header">
+                <span class="review-author">${esc(review.name || 'Customer')}</span>
+                <span class="review-date">${esc(review.date || '')}</span></div>
+                <div class="review-stars">${stars(review.rating || 0)}</div>
+                <div class="review-text">${esc(review.text || '')}</div>
+            </div>`).join('');
+        const prosCons = (product.pros?.length || product.cons?.length) ? `
+            <div class="proscons">
+                <div class="proscons-col pros"><h3>Pros</h3><ul>${(product.pros || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+                <div class="proscons-col cons"><h3>Cons</h3><ul>${(product.cons || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+            </div>` : '';
+        $('#detail-body').innerHTML = `
+            <div class="detail-content">
+                <div class="detail-head">
+                    <img class="detail-thumb" src="${esc(product.image_url)}" alt="${esc(product.name)}">
+                    <div class="detail-head-text">
+                        ${product.brand ? `<div class="detail-brand">${esc(product.brand)}</div>` : ''}
+                        <h2 class="detail-name">${esc(product.name)}</h2>
+                        <div class="detail-price-row">
+                            <span class="detail-price">${money(product)}</span>
+                            ${product.rating !== null ? `<span class="detail-rating"><span class="star-icon">★</span> ${esc(product.rating)} · ${esc(product.review_count)} reviews</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                ${variantHTML}
+                <p class="detail-desc">${esc(product.description)}</p>
+                <button class="btn-primary detail-add-btn" onclick="App.addToCart('${esc(product.id)}')">Add to Cart</button>
+                ${prosCons}
+                <div class="specs-section"><h3>Specifications</h3><div class="specs-grid">
+                    ${attributes.map(rule => `<div class="spec-item"><div class="spec-label">${esc(rule.label)}</div>
+                        <div class="spec-value">${esc(CatalogRuntime.displayAttribute(product.attributes[rule.key], rule))}</div></div>`).join('')}
+                </div></div>
+                ${reviews ? `<div class="reviews-section"><h3>Customer Reviews</h3>${reviews}</div>` : ''}
+            </div>`;
+    }
+
     /* ── PRODUCT DETAIL DRAWER ──────────────────────────────────── */
     /* colors: every color of this umbrella (the product itself included), in catalog order */
     function renderDetail(product, colors = [product]) {
+        if (App.getManifest()?.presentation !== 'umbrella_demo') return renderGenericDetail(product, colors);
         const body = $('#detail-body');
         const colorsHTML = colors.length > 1 ? `
             <div class="detail-colors">
@@ -158,33 +212,23 @@ const UI = (() => {
         const headerCells = data.products.map(p => `
             <th>
                 <div class="compare-product-header">
-                    <img src="${p.image_url}" alt="${p.name}">
-                    <span>${p.name}</span>
+                    <img src="${esc(p.image_url)}" alt="${esc(p.name)}">
+                    <span>${esc(p.name)}</span>
                 </div>
             </th>
         `).join('');
 
-        // Rows where one value is clearly better get it highlighted: lowest price and weight, highest rest
-        const BETTER = { 'Price': 'low', 'Weight': 'low', 'Rating': 'high', 'Wind Resistance': 'high', 'Canopy Size': 'high' };
-        const bestIndexes = row => {
-            const dir = BETTER[row.field];
-            if (!dir || row.values.length < 2) return [];
-            // First number in the cell: "4.7 ⭐ (12 reviews)" → 4.7, "$29.99" → 29.99
-            const nums = row.values.map(v => parseFloat((String(v).match(/\d+(?:\.\d+)?/) || [])[0]));
-            if (nums.some(Number.isNaN)) return [];
-            const best = dir === 'low' ? Math.min(...nums) : Math.max(...nums);
-            if (nums.every(n => n === best)) return [];  // a tie across the board is no one's win
-            return nums.flatMap((n, i) => (n === best ? [i] : []));
-        };
+        // The backend ranks typed values once; the voice tool receives this same matrix.
+        const bestIndexes = row => row.best_indexes || [];
 
         const rows = data.matrix.map(row => {
             const best = bestIndexes(row);
             return `
             <tr>
-                <td class="field-label">${row.field}</td>
+                <td class="field-label">${esc(row.field)}</td>
                 ${row.values.map((v, i) => (best.includes(i)
-                    ? `<td class="compare-best"><span class="best-tag">Best</span> ${v}</td>`
-                    : `<td>${v}</td>`)).join('')}
+                    ? `<td class="compare-best"><span class="best-tag">Best</span> ${esc(v)}</td>`
+                    : `<td>${esc(v)}</td>`)).join('')}
             </tr>`;
         }).join('');
 
@@ -193,7 +237,7 @@ const UI = (() => {
                 <thead><tr><th></th>${headerCells}</tr></thead>
                 <tbody>${rows}</tbody>
             </table>
-            <p class="compare-legend"><span class="best-tag">Best</span> lowest price and weight, highest rating, wind rating and canopy size</p>
+            <p class="compare-legend"><span class="best-tag">Best</span> ${App.getManifest()?.presentation === 'umbrella_demo' ? 'lowest price and weight, highest rating, wind rating and canopy size' : 'highlights values with a clear comparison preference'}</p>
         `;
     }
 
@@ -223,16 +267,16 @@ const UI = (() => {
             if (!p) return '';
             return `
                 <div class="cart-item">
-                    <img class="cart-item-image" src="${p.image_url}" alt="${p.name}">
+                    <img class="cart-item-image" src="${esc(p.image_url)}" alt="${esc(p.name)}">
                     <div class="cart-item-info">
-                        <div class="cart-item-name">${p.name}</div>
-                        <div class="cart-item-price">$${p.price.toFixed(2)}</div>
-                        <button class="cart-remove" onclick="App.removeFromCart('${p.id}')">Remove</button>
+                        <div class="cart-item-name">${esc(p.name)}</div>
+                        <div class="cart-item-price">${money(p)}</div>
+                        <button class="cart-remove" onclick="App.removeFromCart('${esc(p.id)}')">Remove</button>
                     </div>
                     <div class="cart-qty-controls">
-                        <button class="cart-qty-btn" onclick="App.updateQty('${p.id}', ${item.qty - 1})">−</button>
+                        <button class="cart-qty-btn" onclick="App.updateQty('${esc(p.id)}', ${item.qty - 1})">−</button>
                         <span class="cart-qty-value">${item.qty}</span>
-                        <button class="cart-qty-btn" onclick="App.updateQty('${p.id}', ${item.qty + 1})">+</button>
+                        <button class="cart-qty-btn" onclick="App.updateQty('${esc(p.id)}', ${item.qty + 1})">+</button>
                     </div>
                 </div>
             `;
@@ -242,10 +286,10 @@ const UI = (() => {
         const { subtotal, tax, total } = App.getCartSummary();
 
         $('#cart-summary').innerHTML = `
-            <div class="cart-summary-row"><span>Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
-            <div class="cart-summary-row"><span>Tax (8%)</span><span>$${tax.toFixed(2)}</span></div>
+            <div class="cart-summary-row"><span>Subtotal</span><span>${App.formatPrice(subtotal)}</span></div>
+            <div class="cart-summary-row"><span>Tax (8%)</span><span>${App.formatPrice(tax)}</span></div>
             <div class="cart-summary-row"><span>Shipping</span><span class="free-shipping">Free</span></div>
-            <div class="cart-summary-row total"><span>Total</span><span>$${total.toFixed(2)}</span></div>
+            <div class="cart-summary-row total"><span>Total</span><span>${App.formatPrice(total)}</span></div>
         `;
     }
 
@@ -259,22 +303,22 @@ const UI = (() => {
             <div class="checkout-items">
                 ${lines.map(({ item, p }) => `
                     <div class="checkout-item">
-                        <img class="checkout-thumb" src="${p.image_url}" alt="${p.name}">
+                        <img class="checkout-thumb" src="${esc(p.image_url)}" alt="${esc(p.name)}">
                         <div>
-                            <div class="checkout-item-name">${p.name}</div>
-                            <div class="checkout-item-qty">Qty ${item.qty} · $${p.price.toFixed(2)} each</div>
+                            <div class="checkout-item-name">${esc(p.name)}</div>
+                            <div class="checkout-item-qty">Qty ${item.qty} · ${money(p)} each</div>
                         </div>
-                        <div class="checkout-item-total">$${(p.price * item.qty).toFixed(2)}</div>
+                        <div class="checkout-item-total">${App.formatPrice(p.price * item.qty)}</div>
                     </div>
                 `).join('')}
             </div>
             <div class="checkout-totals">
-                <div class="checkout-item-row"><span>Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
-                <div class="checkout-item-row"><span>Tax (8%)</span><span>$${tax.toFixed(2)}</span></div>
+                <div class="checkout-item-row"><span>Subtotal</span><span>${App.formatPrice(subtotal)}</span></div>
+                <div class="checkout-item-row"><span>Tax (8%)</span><span>${App.formatPrice(tax)}</span></div>
                 <div class="checkout-item-row"><span>Shipping</span><span class="free-shipping">Free</span></div>
-                <div class="checkout-item-row"><span>Total</span><span>$${total.toFixed(2)}</span></div>
+                <div class="checkout-item-row"><span>Total</span><span>${App.formatPrice(total)}</span></div>
             </div>
-            <button class="btn-primary btn-full" onclick="App.placeOrder()">Place order · $${total.toFixed(2)}</button>
+            <button class="btn-primary btn-full" onclick="App.placeOrder()">Place order · ${App.formatPrice(total)}</button>
         `;
     }
 

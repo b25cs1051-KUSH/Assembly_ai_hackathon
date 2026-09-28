@@ -1,88 +1,84 @@
-/* Runs frontend/js/agent_tools.js outside the browser for scripts/voice_latency.py, so latency runs send the
-   page's exact tool definitions and tool results. One JSON request per stdin line, one JSON reply per stdout line:
-     {"definitions": true}              → the tools array the page sends in session.update
-     {"name": "...", "arguments": {...}} → {"result": ...} or {"error": "..."}
-     {"ackFor": "user's words"}         → {"ack": "search_products" | "action" | null}
-   App is a stub using the same filter rule as app.js applyFilters. */
-
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
-const vm = require('vm');
+/* Runs the browser's eight tools in Node for scripts/voice_latency.py.
+   Set ACTIVE_CATALOG to choose the prepared category bundle. */
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const readline = require('node:readline');
 
 const ROOT = path.join(__dirname, '..');
-const products = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/products.json'), 'utf8'));
-const text = p => `${p.name} ${p.brand} ${p.color} ${p.color_family} ${p.description} ${p.specs.frame_material}`.toLowerCase();
-function colorMatches(p, spoken) {
-    const norm = t => String(t || '').toLowerCase().replace(/\bgrey\b/g, 'gray');
-    const haystack = `${norm(p.color)} ${norm(p.color_family)}`;
-    return norm(spoken).split(/[^a-z]+/).filter(Boolean).every(w => haystack.includes(w));
+function load(category) {
+    const active = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/catalogs', category, 'active.json')));
+    const folder = path.join(ROOT, 'data/catalogs', category, active.version);
+    const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'manifest.json')));
+    const products = JSON.parse(fs.readFileSync(path.join(folder, 'products.json')));
+    let visible = products;
+    let compareIds = [];
+    let cart = [];
+    let checkoutOpen = false;
+    let opened = null;
+    const UI = { markPositions() {}, highlightCard() {}, showToolChip() {}, hideToolChip() {} };
+    const App = {
+        getManifest: () => manifest, getProducts: () => products, getVisible: () => visible,
+        getBrands: () => [...new Set(products.map(p => p.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+        sortOptions: manifest.presentation === 'umbrella_demo'
+            ? ['relevance', 'price_low_to_high', 'price_high_to_low', 'rating', 'lightest', 'most_wind_resistant']
+            : ['relevance', 'price_low_to_high', 'price_high_to_low', 'rating'],
+        closeAllPanels() { checkoutOpen = false; },
+        setFilters(filters) {
+            visible = products.filter(product => context.CatalogRuntime.matches(product, manifest, filters));
+            return visible;
+        },
+        openDetail(id) { opened = id; },
+        async compareProducts(ids) {
+            compareIds = ids.map(String);
+            if (compareIds.length < 2) return;
+            return {
+                version: active.version,
+                products: compareIds.map(id => {
+                    const product = products.find(p => p.id === id);
+                    return { id, name: product.name, image_url: product.image_url };
+                }),
+                matrix: [{ key: 'price', field: 'Price', values: compareIds.map(id => String(products.find(p => p.id === id).price)),
+                    best_indexes: [0], direction: 'lower' }],
+            };
+        },
+        getCompareIds: () => [...compareIds],
+        addToCart(id, qty = 1) { const found = cart.find(item => item.id === id); if (found) found.qty += qty; else cart.push({ id, qty }); },
+        removeFromCart(id) { cart = cart.filter(item => item.id !== id); },
+        updateQty(id, qty) { if (qty <= 0) return this.removeFromCart(id); cart.find(item => item.id === id).qty = qty; },
+        getCartSummary() {
+            const items = cart.map(item => {
+                const product = products.find(p => p.id === item.id);
+                return { id: item.id, name: product.name, qty: item.qty, lineTotal: +(product.price * item.qty).toFixed(2) };
+            });
+            const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+            return { items, itemCount: items.reduce((sum, item) => sum + item.qty, 0), subtotal,
+                tax: +(subtotal * 0.08).toFixed(2), total: +(subtotal * 1.08).toFixed(2) };
+        },
+        openCart() {}, openCheckout() { checkoutOpen = true; }, isCheckoutOpen: () => checkoutOpen,
+        placeOrder() { cart = []; checkoutOpen = false; return 'VC-TEST'; },
+    };
+    const context = { App, UI, console, document: { getElementById: () => ({ scrollIntoView() {} }) } };
+    vm.createContext(context);
+    vm.runInContext(fs.readFileSync(path.join(ROOT, 'frontend/js/catalog_runtime.js'), 'utf8') +
+        '\nglobalThis.CatalogRuntime = CatalogRuntime;', context);
+    vm.runInContext(fs.readFileSync(path.join(ROOT, 'frontend/js/agent_tools.js'), 'utf8') +
+        '\nglobalThis.AgentTools = AgentTools;', context);
+    return { tools: context.AgentTools, products, manifest, getOpened: () => opened, getCompareIds: () => compareIds };
 }
-const SORTERS = {
-    relevance: null,
-    price_low_to_high: (a, b) => a.price - b.price,
-    price_high_to_low: (a, b) => b.price - a.price,
-    rating: (a, b) => b.rating - a.rating,
-    lightest: (a, b) => a.specs.weight_oz - b.specs.weight_oz,
-    most_wind_resistant: (a, b) => b.specs.wind_rating_mph - a.specs.wind_rating_mph,
-};
 
-let filtered = products;
-let cart = [];
-let compareIds = [];
-let checkoutOpen = false;
-const App = {
-    getProducts: () => products,
-    getVisible: () => filtered,
-    getBrands: () => [...new Set(products.map(p => p.brand))].sort((a, b) => a.localeCompare(b)),
-    sortOptions: Object.keys(SORTERS),
-    colorMatches,
-    closeAllPanels() { checkoutOpen = false; },
-    setFilters(f) {
-        const words = (f.search || '').toLowerCase().split(/\s+/).filter(Boolean);
-        filtered = products.filter(p => (!f.brand || p.brand === f.brand)
-            && (!f.color || colorMatches(p, f.color))
-            && p.price <= (f.maxPrice ?? Infinity)
-            && p.specs.wind_rating_mph >= (f.minWind ?? 0)
-            && p.rating >= (f.minRating ?? 0)
-            && p.specs.weight_oz <= (f.maxWeight ?? Infinity)
-            && (!f.autoOpen || p.specs.automatic_open)
-            && words.every(w => text(p).includes(w)));
-        if (SORTERS[f.sortBy]) filtered.sort(SORTERS[f.sortBy]);
-        return filtered;
-    },
-    openDetail() {},
-    compareProducts(ids) { compareIds = ids.map(String); },
-    getCompareIds: () => [...compareIds],
-    addToCart(id, qty = 1) { const i = cart.find(x => x.id === id); if (i) i.qty += qty; else cart.push({ id, qty }); },
-    removeFromCart(id) { cart = cart.filter(i => i.id !== id); },
-    updateQty(id, qty) { const i = cart.find(x => x.id === id); if (i) i.qty = qty; },
-    openCheckout() { checkoutOpen = true; },
-    openCart() {},
-    isCheckoutOpen: () => checkoutOpen,
-    placeOrder() { cart = []; return 'VC-TEST'; },
-    getCartSummary() {
-        const items = cart.map(i => {
-            const p = products.find(x => x.id === i.id);
-            return { id: i.id, name: p.name, qty: i.qty, lineTotal: +(p.price * i.qty).toFixed(2) };
-        });
-        const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
-        return { items, itemCount: items.reduce((s, i) => s + i.qty, 0), subtotal, tax: +(subtotal * 0.08).toFixed(2), total: +(subtotal * 1.08).toFixed(2) };
-    },
-};
-const UI = { markPositions() {}, highlightCard() {}, showToolChip() {}, hideToolChip() {} };
-const ctx = { App, UI, console, document: { getElementById: () => ({ scrollIntoView() {} }) } };
-vm.createContext(ctx);
-vm.runInContext(`${fs.readFileSync(path.join(ROOT, 'frontend/js/agent_tools.js'), 'utf8')}\nglobalThis.AgentTools = AgentTools;`, ctx);
 
-const reply = obj => process.stdout.write(`${JSON.stringify(obj)}\n`);
+const catalog = load(process.env.ACTIVE_CATALOG || 'umbrella');
+const reply = value => process.stdout.write(JSON.stringify(value) + '\n');
 readline.createInterface({ input: process.stdin }).on('line', async line => {
-    const req = JSON.parse(line);
-    if (req.definitions) { reply({ definitions: ctx.AgentTools.definitions(), keyterms: ctx.AgentTools.keyterms() }); return; }
-    if ('ackFor' in req) { reply({ ack: ctx.AgentTools.ackFor(req.ackFor) }); return; }
     try {
-        reply({ result: await ctx.AgentTools.run(req.name, req.arguments) });
-    } catch (e) {
-        reply({ error: e.message });
+        const request = JSON.parse(line);
+        if (request.definitions) return reply({
+            definitions: catalog.tools.definitions(), keyterms: catalog.tools.keyterms(),
+        });
+        if ('ackFor' in request) return reply({ ack: catalog.tools.ackFor(request.ackFor) });
+        reply({ result: await catalog.tools.run(request.name, request.arguments) });
+    } catch (error) {
+        reply({ error: error.message });
     }
 });

@@ -11,20 +11,12 @@ const AgentTools = (() => {
     // Words people say that are not product properties: "show me the yellow umbrellas" → "yellow".
     // Prices, wind and weight have their own filters, so their wording ("under 30 dollars") is dropped too.
     const FILLER = new Set([
-        'umbrella', 'umbrellas', 'one', 'ones', 'please', 'show', 'me', 'some', 'any', 'the', 'a', 'an',
+        'one', 'ones', 'please', 'show', 'me', 'some', 'any', 'the', 'a', 'an',
         'i', 'my', 'need', 'want', 'find', 'get', 'looking', 'look', 'for', 'something', 'that', 'with', 'and', 'in', 'of',
         'it', 'is', 'to', 'can', 'you', 'have', 'like', 'good', 'nice', 'really', 'very',
         'under', 'below', 'less', 'than', 'over', 'above', 'around', 'about', 'dollar', 'dollars', 'bucks', 'usd',
         'cheap', 'cheaper', 'cheapest', 'color', 'colour', 'colored', 'coloured',
     ]);
-
-    // Spoken spec words become structured filters (unless the agent already set that filter) and leave the text
-    // query: "windproof" must find a 55 mph golf umbrella whose description never says "windproof".
-    const SPEC_WORDS = [
-        { re: /\bwind[\s-]*(?:proof|resistant|resistance)\b/g, key: 'min_wind_mph', value: 50 },
-        { re: /\b(?:light|lightweight)\b/g, key: 'max_weight_oz', value: 14 },
-        { re: /\bauto(?:matic)?(?:[\s-]+open(?:ing)?)?\b/g, key: 'automatic_open', value: true },
-    ];
 
     // Ids of the latest search's matches in display order: "position 1" means the first one on screen now,
     // resolved here rather than left to the model's memory of older searches.
@@ -34,7 +26,7 @@ const AgentTools = (() => {
     const LABELS = {
         search_products: 'Searching the store',
         show_product: 'Opening product details',
-        compare_products: 'Comparing umbrellas',
+        compare_products: 'Comparing products',
         update_compare: 'Updating the comparison',
         update_cart: 'Updating your cart',
         show_cart: 'Opening your cart',
@@ -44,449 +36,294 @@ const AgentTools = (() => {
 
     /* Built on demand: the brand and product id enums come from the loaded catalog */
     function definitions() {
-        const productIds = App.getProducts().map(p => p.id);
-        const productId = {
-            type: 'string',
-            description: 'The product\'s id field, for a product that is not in the latest search. Prefer position for numbered results. Example: "4".',
+        const manifest = App.getManifest();
+        if (!manifest) throw new Error('Catalog is not loaded');
+        const productId = { type: 'string', description: 'Stable product id. Prefer position for numbered search results.' };
+        const position = { type: 'integer', minimum: 1, description: 'Number in the latest search, e.g. 1 for first.' };
+        const target = { position, product_id: productId };
+        if (manifest.variant_value_source) target.variant = { type: 'string', description: 'Requested option of the same product.' };
+        const search = {
+            query: { type: 'string', description: 'Product keywords; omit requirements already in filters.' },
+            max_price: { type: 'number', description: 'Highest listed price in ' + manifest.currency + '.' },
+            sort_by: { type: 'string', enum: App.sortOptions, description: 'Result order; default relevance.' },
         };
-        if (productIds.length) productId.enum = productIds;  // an empty enum would make every id invalid
-        const position = {
-            type: 'integer',
-            minimum: 1,
-            description: 'Result number in the latest search, 1 for the first. Use it when the user says "the first one" or "number two". Give position or product_id.',
-        };
-        const color = {
-            type: 'string',
-            description: 'Switch to the same umbrella in this color, for example "red" or "navy blue", when the user asks for another color. Leave out to keep the color it has.',
-        };
+        const brands = App.getBrands();
+        if (brands.length) search.brand = { type: 'string', description: 'Only this brand.',
+            ...(brands.length <= 40 ? { enum: brands } : {}) };
+        if (manifest.presentation === 'umbrella_demo') search.color = { type: 'string', description: 'Only this color or color family.' };
+        if (App.getProducts().some(p => p.rating !== null)) search.min_rating = { type: 'number', description: 'Lowest customer rating, from 1 to 5.' };
+        for (const attribute of manifest.attributes) for (const filter of attribute.filters) {
+            const schema = { type: attribute.kind === 'number' ? 'number' : attribute.kind === 'boolean' ? 'boolean' : 'string',
+                description: filter.description };
+            if (attribute.kind === 'enum') {
+                const values = [...new Set(App.getProducts().map(p => p.attributes[attribute.key]).filter(v => v !== undefined))];
+                if (values.length <= 40) schema.enum = values;
+            }
+            search[filter.parameter] = schema;
+        }
         return [
-            {
-                type: 'function',
-                name: 'search_products',
-                description: 'Filter the store\'s umbrellas and show the matches on screen; use it whenever the user describes what they want or changes a requirement.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        query: {
-                            type: 'string',
-                            description: 'Keywords that must appear in the product name or description, such as "bubble", "kids" or "golf". Leave out for price, wind, weight or rating requirements.',
-                        },
-                        brand: { type: 'string', ...(App.getBrands().length && { enum: App.getBrands() }), description: 'Only this brand.' },
-                        color: {
-                            type: 'string',
-                            description: 'Only umbrellas in this color, for example "blue", "pink", "clear" or "floral". Matches both basic colors and color names.',
-                        },
-                        max_price: { type: 'number', description: 'Highest price in US dollars.' },
-                        min_rating: { type: 'number', description: 'Lowest average star rating, from 1 to 5.' },
-                        min_wind_mph: {
-                            type: 'number',
-                            description: 'Lowest wind rating in miles per hour. Windproof usually means 50 or more.',
-                        },
-                        max_weight_oz: {
-                            type: 'number',
-                            description: 'Highest weight in ounces. Light or backpack friendly usually means 14 or less.',
-                        },
-                        automatic_open: { type: 'boolean', description: 'True to show only umbrellas that open with one button.' },
-                        sort_by: { type: 'string', enum: App.sortOptions, description: 'Result order. Default is relevance.' },
-                    },
-                },
-            },
-            {
-                type: 'function',
-                name: 'show_product',
-                description: 'Open one umbrella\'s detail page and get its specs, pros, cons, review summary and other colors; use it when the user asks for more about a product, what people say about it, or to see it in another color.',
-                parameters: {
-                    type: 'object',
-                    properties: { position, product_id: productId, color },
-                },
-            },
-            {
-                type: 'function',
-                name: 'compare_products',
-                description: 'Show a side-by-side comparison of 2 or 3 umbrellas and get their differences; use it when the user wants to compare or choose between products.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        positions: {
-                            type: 'array',
-                            items: { type: 'integer', minimum: 1 },
-                            minItems: 2,
-                            maxItems: 3,
-                            description: 'Result numbers in the latest search, for example [1, 2] for "the first two". Give positions or product_ids.',
-                        },
-                        product_ids: {
-                            type: 'array',
-                            items: productId,
-                            minItems: 2,
-                            maxItems: 3,
-                            description: 'Ids of the 2 or 3 products to compare, for example ["1", "4"].',
-                        },
-                    },
-                },
-            },
-            {
-                type: 'function',
-                name: 'update_compare',
-                description: 'Remove umbrellas from the open comparison, add one to it, or clear it; use it when the user wants to take something out of or add something to the comparison.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        action: {
-                            type: 'string',
-                            enum: ['remove', 'add', 'clear'],
-                            description: 'remove takes products out, add puts one more in (at most 3), clear empties the comparison and closes it.',
-                        },
-                        columns: {
-                            type: 'array',
-                            items: { type: 'integer', minimum: 1 },
-                            description: 'For remove: column numbers in the comparison table, 1 for the leftmost, for example [2] for "remove the second one".',
-                        },
-                        positions: {
-                            type: 'array',
-                            items: { type: 'integer', minimum: 1 },
-                            description: 'For add: result numbers in the latest search, for example [4].',
-                        },
-                        product_ids: {
-                            type: 'array',
-                            items: productId,
-                            description: 'Product ids to remove or add, for example ["2"].',
-                        },
-                    },
-                    required: ['action'],
-                },
-            },
-            {
-                type: 'function',
-                name: 'update_cart',
-                description: 'Add a product to the cart, remove it, or set its quantity; returns the updated cart and total.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        action: {
-                            type: 'string',
-                            enum: ['add', 'remove', 'set_quantity'],
-                            description: 'add puts quantity more in the cart, remove takes the product out, set_quantity sets an exact amount.',
-                        },
-                        position,
-                        product_id: productId,
-                        color,
-                        quantity: { type: 'integer', description: 'How many. Defaults to 1 for add; required for set_quantity. Example: 2.' },
-                    },
-                    required: ['action'],
-                },
-            },
-            {
-                type: 'function',
-                name: 'show_cart',
-                description: 'Open the cart on screen and get its items and total; use it when the user asks to see their cart or what is in it.',
-                parameters: { type: 'object', properties: {} },
-            },
-            {
-                type: 'function',
-                name: 'checkout',
-                description: 'Open the checkout summary and get the items and order total; use it when the user wants to check out or pay. If they name an umbrella to buy, pass it and it is added to the cart first.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        position,
-                        product_id: productId,
-                        color,
-                        quantity: { type: 'integer', minimum: 1, description: 'How many of that umbrella, if it is not in the cart yet. Defaults to 1.' },
-                    },
-                },
-            },
-            {
-                type: 'function',
-                name: 'place_order',
-                description: 'Place the order shown on the checkout screen; use it only after you read the total and the user clearly said yes.',
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        user_confirmed: { type: 'boolean', description: 'True only if the user explicitly agreed to place the order.' },
-                    },
-                    required: ['user_confirmed'],
-                },
-            },
+            { type: 'function', name: 'search_products',
+                description: 'Filter the store products and update the grid when the shopper describes or changes requirements.',
+                parameters: { type: 'object', properties: search } },
+            { type: 'function', name: 'show_product',
+                description: 'Open product details and return recorded attributes, reviews and available options.',
+                parameters: { type: 'object', properties: target } },
+            { type: 'function', name: 'compare_products',
+                description: 'Compare two or three products using their recorded values.',
+                parameters: { type: 'object', properties: {
+                    positions: { type: 'array', items: { type: 'integer', minimum: 1 }, minItems: 2, maxItems: 3,
+                        description: 'Result numbers in the latest search. Use positions or product_ids.' },
+                    product_ids: { type: 'array', items: productId, minItems: 2, maxItems: 3,
+                        description: 'Stable product ids to compare.' },
+                } } },
+            { type: 'function', name: 'update_compare',
+                description: 'Add, remove or clear products in the current comparison.',
+                parameters: { type: 'object', properties: {
+                    action: { type: 'string', enum: ['remove', 'add', 'clear'] },
+                    columns: { type: 'array', items: { type: 'integer', minimum: 1 }, description: 'Column numbers to remove.' },
+                    positions: { type: 'array', items: { type: 'integer', minimum: 1 }, description: 'Latest search result numbers to add.' },
+                    product_ids: { type: 'array', items: productId, description: 'Product ids to add or remove.' },
+                }, required: ['action'] } },
+            { type: 'function', name: 'update_cart',
+                description: 'Add, remove or set a product quantity in the cart.',
+                parameters: { type: 'object', properties: {
+                    action: { type: 'string', enum: ['add', 'remove', 'set_quantity'] }, ...target,
+                    quantity: { type: 'integer', description: 'Quantity; defaults to one for add.' },
+                }, required: ['action'] } },
+            { type: 'function', name: 'show_cart',
+                description: 'Open the cart and return its items and total.',
+                parameters: { type: 'object', properties: {} } },
+            { type: 'function', name: 'checkout',
+                description: 'Open simulated checkout; optionally add a named product to the cart first.',
+                parameters: { type: 'object', properties: { ...target,
+                    quantity: { type: 'integer', minimum: 1, description: 'How many of the named product.' },
+                } } },
+            { type: 'function', name: 'place_order',
+                description: 'Show simulated order confirmation only after the shopper confirms the total.',
+                parameters: { type: 'object', properties: {
+                    user_confirmed: { type: 'boolean', description: 'True only after explicit shopper confirmation.' },
+                }, required: ['user_confirmed'] } },
         ];
     }
 
-    /* Product and brand names bias speech recognition towards the catalog's spelling */
     function keyterms() {
-        return ['VoiceCart', ...App.getBrands()];
+        const manifest = App.getManifest();
+        return ['VoiceCart', manifest.display_name, ...App.getBrands()].slice(0, 100);
     }
 
-    /* ── HELPERS ────────────────────────────────────────────────── */
     function optionalNumber(args, key) {
         if (args[key] === undefined || args[key] === null) return undefined;
-        const n = Number(args[key]);
-        if (!Number.isFinite(n) || n < 0) throw new Error(`${key} must be a positive number, got "${args[key]}".`);
-        return n;
+        const value = Number(args[key]);
+        if (!Number.isFinite(value) || value < 0) throw new Error(key + ' must be a nonnegative number.');
+        return value;
     }
 
     function product(id) {
-        const p = App.getProducts().find(x => x.id === String(id));
-        if (!p) throw new Error(`No product with id "${id}". Use the id field from a search_products result.`);
-        return p;
+        const found = App.getProducts().find(item => item.id === String(id));
+        if (!found) throw new Error('No product with id ' + id + '. Use an id from search_products.');
+        return found;
     }
 
-    /* Ids that positions count through: the latest search, or the grid on screen before any search */
     function numbered() {
-        return latestResults.length ? latestResults : App.getVisible().map(p => p.id);
+        return latestResults.length ? latestResults : App.getVisible().map(item => item.id);
     }
 
-    /* Result number N of the latest search, as numbered on screen */
-    function atPosition(n) {
-        const pos = Number(n);
+    function atPosition(number) {
+        const pos = Number(number);
         const ids = numbered();
-        if (!ids.length) throw new Error('No umbrellas are on screen. Call search_products first.');
+        if (!ids.length) throw new Error('No products are on screen. Call search_products first.');
         if (!Number.isInteger(pos) || pos < 1 || pos > ids.length) {
-            const count = ids.length === 1 ? 'only 1 umbrella' : `only ${ids.length} umbrellas`;
-            throw new Error(`Out of range: the latest search has ${ids.length} result${ids.length === 1 ? '' : 's'}. `
-                + `Tell the user there are ${count} in the results, so number ${n} is out of range, `
-                + `and ask if they want number ${ids.length}, the last one, instead.`);
+            throw new Error('Out of range: the latest search has ' + ids.length + ' results. Tell the user number '
+                + number + ' is out of range and ask if they want number ' + ids.length + ', the last one, instead.');
         }
         return product(ids[pos - 1]);
     }
 
-    /* The product a call is about: position (preferred for numbered results) or product_id, then color */
-    function target(args) {
-        let p;
-        if (args.position !== undefined && args.position !== null) p = atPosition(args.position);
-        else if (args.product_id !== undefined && args.product_id !== null) p = product(args.product_id);
-        else throw new Error('Give position (its number in the latest search) or product_id.');
-        return args.color ? inColor(p, args.color) : p;
+    function variantsOf(item) {
+        return item.variant_group ? App.getProducts().filter(other => other.variant_group === item.variant_group) : [item];
     }
 
-    /* Every color of the same umbrella, in catalog order */
-    function colorsOf(p) {
-        return App.getProducts().filter(x => x.model === p.model);
-    }
-
-    /* The same umbrella in the spoken color: an exact color name wins over a color family match */
-    function inColor(p, spoken) {
-        const siblings = colorsOf(p);
-        const want = String(spoken).toLowerCase().trim();
-        const match = siblings.find(x => x.color.toLowerCase() === want)
-            || siblings.find(x => App.colorMatches(x, want));
+    function inVariant(item, requested) {
+        const variants = variantsOf(item);
+        const want = String(requested).toLowerCase().trim();
+        const match = variants.find(other => String(other.variant_value).toLowerCase() === want)
+            || variants.find(other => String(other.variant_value).toLowerCase().includes(want));
         if (match) return match;
-        throw new Error(siblings.length > 1
-            ? `The ${p.model} does not come in ${spoken}. It comes in ${siblings.map(x => x.color).join(', ')}. Tell the user and offer one of these.`
-            : `The ${p.model} only comes in ${p.color}. Tell the user and offer to search for a ${spoken} umbrella instead.`);
+        throw new Error(item.name + ' is not offered in ' + requested + '. Available options: '
+            + variants.map(other => other.variant_value || other.name).join(', ') + '.');
     }
 
-    /* Position in the latest search, or null if it is not in it */
+    function target(args) {
+        let item;
+        if (args.position !== undefined && args.position !== null) item = atPosition(args.position);
+        else if (args.product_id !== undefined && args.product_id !== null) item = product(args.product_id);
+        else throw new Error('Give position or product_id.');
+        return args.variant || args.color ? inVariant(item, args.variant || args.color) : item;
+    }
+
     function positionOf(id) {
-        const i = numbered().indexOf(id);
-        return i < 0 ? null : i + 1;
+        const index = numbered().indexOf(id);
+        return index < 0 ? null : index + 1;
     }
 
-    /* The open comparison, by column, for the agent */
-    function compareResult() {
+    async function comparisonForCurrent(data = null) {
         const ids = App.getCompareIds();
-        return {
-            products: ids.map((id, i) => {
-                const p = product(id);
-                return {
-                    column: i + 1,
-                    position: positionOf(p.id),
-                    id: p.id,
-                    name: p.name,
-                    price: p.price,
-                    rating: p.rating,
-                    wind_mph: p.specs.wind_rating_mph,
-                    weight_oz: p.specs.weight_oz,
-                    canopy_inches: p.specs.canopy_size_inches,
-                    automatic_open: p.specs.automatic_open,
-                    pros: p.pros,
-                    cons: p.cons,
-                };
-            }),
-        };
+        if (ids.length < 2) {
+            return { products: ids.map((id, index) => ({ id, name: product(id).name, column: index + 1,
+                position: positionOf(id) })), matrix: [] };
+        }
+        data = data || await App.compareProducts(ids);
+        if (!data) throw new Error('The comparison was superseded by a newer request.');
+        return { ...data, products: data.products.map((item, index) => ({
+            ...item, column: index + 1, position: positionOf(item.id),
+        })) };
     }
 
-    /* Words that name a color in the catalog ("black", "navy", "rainbow"). In a query they are matched against
-       the color, not the text: "black" must not find a pink umbrella whose description mentions a black handle,
-       and "red" must not match "covered". */
-    function colorWords() {
-        const words = new Set(['gray', 'grey']);
-        App.getProducts().forEach(p => `${p.color || ''} ${p.color_family || ''}`.toLowerCase()
-            .split(/[^a-z]+/).forEach(w => { if (w.length > 2) words.add(w); }));
+    function variantWords() {
+        const words = new Set();
+        App.getProducts().forEach(item => String(item.variant_value || '').toLowerCase()
+            .split(/[^a-z]+/).forEach(word => { if (word.length > 2) words.add(word); }));
         return words;
     }
 
-    /* Which acknowledgement clip fits the user's finished turn, judged from their words before the model
-       answers: 'action' for compare, cart, checkout and review requests, 'search_products' for describing an
-       umbrella, null for chit-chat and bare confirmations (a "yes, place it" needs no filler). */
-    const ACTION_WORDS = /\b(compare|comparison|cart|basket|add|remove|take out|check ?out|buy|purchase|quantity|make it|reviews?|complain\w*|people say|tell me more|more about|details?|first one|second one|third one|last one|number (one|two|three))\b/;
-    const SEARCH_WORDS = /\b(umbrellas?|need|want|looking|find|search|show|under|below|less than|cheap\w*|dollars?|bucks|price|wind\w*|light\w*|compact|travel\w*|golf|kids?|bubble|auto\w*|stick|folding|sun|uv)\b/;
+    const ACTION_WORDS = /\b(compare|comparison|cart|basket|add|remove|take out|check ?out|buy|purchase|quantity|reviews?|details?|first one|second one|third one|last one)\b/;
+    const SEARCH_WORDS = /\b(need|want|looking|find|search|show|under|below|less than|price|cheap|products?|items?)\b/;
     function ackFor(text) {
         const said = String(text || '').toLowerCase().replace(/[^a-z0-9']+/g, ' ').trim();
-        if (!said || /\b(place|confirm)\b/.test(said)) return null;  // the order confirmation gets an answer, not a filler
+        if (!said || /\b(place|confirm)\b/.test(said)) return null;
         if (ACTION_WORDS.test(said)) return 'action';
-        const names = new Set([...colorWords(), ...App.getBrands().map(b => b.toLowerCase())]);
-        if (SEARCH_WORDS.test(said) || said.split(' ').some(w => names.has(w))) return 'search_products';
+        const manifest = App.getManifest();
+        const names = new Set([...variantWords(), ...App.getBrands().map(name => name.toLowerCase()),
+            ...manifest.display_name.toLowerCase().split(/\s+/),
+            ...manifest.attributes.flatMap(rule => rule.label.toLowerCase().split(/\s+/))]);
+        if (SEARCH_WORDS.test(said) || said.split(' ').some(word => names.has(word))) return 'search_products';
         return null;
     }
 
-    /* "show me the yellow umbrellas" → "yellow": drop filler words and word endings, so every word left must match.
-       Words match as substrings, so the stem "kid" finds "kids" and "travel" finds "traveling". */
+    function stem(word) {
+        if (word.length > 5 && word.endsWith('ing')) return word.slice(0, -3).replace(/(.)\1$/, '$1');
+        if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+        return word;
+    }
+
     function cleanQuery(query) {
+        const manifest = App.getManifest();
+        const filler = new Set([...FILLER, ...manifest.display_name.toLowerCase().split(/\s+/),
+            ...manifest.singular_name.toLowerCase().split(/\s+/)]);
         return String(query).toLowerCase().split(/[^a-z0-9]+/)
-            .filter(w => w && !FILLER.has(w) && !/^\d+$/.test(w))  // bare numbers belong to price, wind or weight
-            .map(stem)
-            .join(' ');
+            .filter(word => word && !filler.has(word) && !/^\d+$/.test(word))
+            .map(stem).join(' ');
     }
 
-    function stem(w) {
-        if (w.length > 5 && w.endsWith('ing')) return w.slice(0, -3).replace(/(.)\1$/, '$1');  // travelling → travel
-        if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
-        return w;
+    function searchText(item) {
+        return CatalogRuntime.searchText(item, App.getManifest());
     }
 
-    /* Same text app.js applyFilters searches */
-    function searchText(p) {
-        return `${p.name} ${p.brand} ${p.color} ${p.color_family} ${p.description} ${p.specs.frame_material}`.toLowerCase();
-    }
-
-    function details(p) {
+    function details(item) {
         return {
-            position: positionOf(p.id),
-            id: p.id,
-            name: p.name,
-            brand: p.brand,
-            color: p.color,
-            other_colors: colorsOf(p).filter(x => x.id !== p.id).map(x => ({ color: x.color, id: x.id })),
-            price: p.price,
-            rating: p.rating,
-            review_count: p.review_count,
-            specs: p.specs,
-            pros: p.pros,
-            cons: p.cons,
-            reviews_summary: p.reviews_summary,
-            // Grounds answers to "what do people complain about?" in review text
-            critical_reviews: (p.reviews || []).filter(r => r.rating <= 4).sort((a, b) => a.rating - b.rating)
-                .slice(0, 3).map(r => ({ rating: r.rating, text: r.text })),
-            top_reviews: (p.reviews || []).filter(r => r.rating === 5).slice(0, 2).map(r => ({ rating: r.rating, text: r.text })),
+            position: positionOf(item.id), id: item.id, name: item.name, brand: item.brand,
+            price: item.price, currency: item.currency, rating: item.rating,
+            review_count: item.review_count, attributes: item.attributes,
+            variants: variantsOf(item).filter(other => other.id !== item.id)
+                .map(other => ({ id: other.id, option: other.variant_value })),
+            pros: item.pros, cons: item.cons, reviews_summary: item.reviews_summary,
+            critical_reviews: (item.reviews || []).filter(review => review.rating <= 4)
+                .sort((a, b) => a.rating - b.rating).slice(0, 3)
+                .map(review => ({ rating: review.rating, text: review.text })),
+            top_reviews: (item.reviews || []).filter(review => review.rating === 5).slice(0, 2)
+                .map(review => ({ rating: review.rating, text: review.text })),
         };
     }
 
     function cartResult() {
-        const c = App.getCartSummary();
-        return {
-            items: c.items.map(i => ({ id: i.id, name: i.name, quantity: i.qty, line_total: i.lineTotal })),
-            item_count: c.itemCount,
-            subtotal: c.subtotal,
-            tax: c.tax,
-            total: c.total,
-        };
+        const cart = App.getCartSummary();
+        return { items: cart.items.map(item => ({ id: item.id, name: item.name, quantity: item.qty, line_total: item.lineTotal })),
+            item_count: cart.itemCount, subtotal: cart.subtotal, tax: cart.tax, total: cart.total,
+            currency: App.getManifest().currency };
     }
 
-    function summary(p, i) {
+    function summary(item, index) {
         return {
-            position: i + 1,
-            id: p.id,
-            name: p.name,
-            brand: p.brand,
-            color: p.color,
-            other_colors: colorsOf(p).filter(x => x.id !== p.id).map(x => x.color),
-            price: p.price,
-            rating: p.rating,
-            wind_mph: p.specs.wind_rating_mph,
-            weight_oz: p.specs.weight_oz,
-            automatic_open: p.specs.automatic_open,
-            // Optional in the data: a missing field must not make the whole search fail
-            best_point: (p.pros || [])[0] || null,
-            main_drawback: (p.cons || [])[0] || null,
+            position: index + 1, id: item.id, name: item.name, brand: item.brand,
+            price: item.price, currency: item.currency, rating: item.rating,
+            attributes: item.attributes,
+            variants: variantsOf(item).filter(other => other.id !== item.id).map(other => other.variant_value),
+            best_point: (item.pros || [])[0] || null,
+            main_drawback: (item.cons || [])[0] || null,
         };
     }
 
     /* ── HANDLERS ───────────────────────────────────────────────── */
     const handlers = {
         search_products(args) {
-            const filters = {};
-            let spoken = args.query ? String(args.query).toLowerCase() : '';
-            const specs = {};
-            SPEC_WORDS.forEach(({ re, key, value }) => {
-                let said = false;
-                spoken = spoken.replace(re, () => { said = true; return ' '; });
-                if (said && (args[key] === undefined || args[key] === null)) specs[key] = value;
-            });
-            args = { ...args, ...specs };
+            const manifest = App.getManifest();
+            const filters = { attributeFilters: {} };
+            let spoken = String(args.query || '').toLowerCase();
+            for (const alias of [...manifest.search_aliases].sort((a, b) => b.phrase.length - a.phrase.length)) {
+                const escaped = alias.phrase.replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&');
+                const pattern = new RegExp('\\b' + escaped.replace(/\s+/g, '[\\s-]+') + '\\b', 'gi');
+                if (pattern.test(spoken)) {
+                    spoken = spoken.replace(pattern, ' ');
+                    if (args[alias.parameter] === undefined) filters.attributeFilters[alias.parameter] = alias.value;
+                }
+            }
             let query = cleanQuery(spoken);
             let color = args.color ? String(args.color).trim().toLowerCase() : '';
-            const named = colorWords();
-            const spokenColors = query.split(' ').filter(w => named.has(w));
-            if (spokenColors.length) {
-                query = query.split(' ').filter(w => !named.has(w)).join(' ');
-                if (!color) color = spokenColors.join(' ');
+            if (manifest.presentation === 'umbrella_demo') {
+                const named = variantWords();
+                const spokenColors = query.split(' ').filter(word => named.has(word));
+                if (spokenColors.length) {
+                    query = query.split(' ').filter(word => !named.has(word)).join(' ');
+                    if (!color) color = spokenColors.join(' ');
+                }
             }
-            // A word no umbrella has ("something", "flashlight") must not empty the results; the agent is told instead.
-            const catalog = App.getProducts().map(searchText);
+            const texts = App.getProducts().map(searchText);
             const words = query.split(' ').filter(Boolean);
-            const ignored = words.filter(w => !catalog.some(t => t.includes(w)));
-            query = words.filter(w => !ignored.includes(w)).join(' ');
+            const ignored = words.filter(word => !texts.some(text => text.includes(word)));
+            query = words.filter(word => !ignored.includes(word)).join(' ');
             if (query) filters.search = query;
             if (color) filters.color = color;
             if (args.brand) {
-                // Spoken brands arrive in any case ("Totes", "tumella"); match the catalog's spelling
-                const brand = App.getBrands().find(b => b.toLowerCase() === String(args.brand).trim().toLowerCase());
-                if (!brand) throw new Error(`Unknown brand "${args.brand}". Brands in the store: ${App.getBrands().join(', ')}.`);
+                const brand = App.getBrands().find(value => value.toLowerCase() === String(args.brand).trim().toLowerCase());
+                if (!brand) throw new Error('Unknown brand ' + args.brand + '. Brands: ' + App.getBrands().join(', '));
                 filters.brand = brand;
             }
             if (args.sort_by) {
-                if (!App.sortOptions.includes(args.sort_by)) {
-                    throw new Error(`Unknown sort_by "${args.sort_by}". Use one of: ${App.sortOptions.join(', ')}.`);
-                }
+                if (!App.sortOptions.includes(args.sort_by)) throw new Error('Unknown sort_by: ' + args.sort_by);
                 filters.sortBy = args.sort_by;
             }
             const maxPrice = optionalNumber(args, 'max_price');
             const minRating = optionalNumber(args, 'min_rating');
-            const minWind = optionalNumber(args, 'min_wind_mph');
-            const maxWeight = optionalNumber(args, 'max_weight_oz');
             if (maxPrice !== undefined) filters.maxPrice = maxPrice;
             if (minRating !== undefined) filters.minRating = minRating;
-            if (minWind !== undefined) filters.minWind = minWind;
-            if (maxWeight !== undefined) filters.maxWeight = maxWeight;
-            if (args.automatic_open === true) filters.autoOpen = true;
+            for (const attribute of manifest.attributes) for (const rule of attribute.filters) {
+                const value = args[rule.parameter];
+                if (value === undefined || value === null) continue;
+                if (attribute.kind === 'number') filters.attributeFilters[rule.parameter] = optionalNumber(args, rule.parameter);
+                else if (attribute.kind === 'boolean') {
+                    if (typeof value !== 'boolean') throw new Error(rule.parameter + ' must be true or false.');
+                    filters.attributeFilters[rule.parameter] = value;
+                } else filters.attributeFilters[rule.parameter] = String(value);
+            }
 
             App.closeAllPanels();
-            UI.highlightCard(null);  // the outline belonged to the previous search
+            UI.highlightCard(null);
             const matches = App.setFilters(filters);
-            latestResults = matches.map(p => p.id);
-            UI.markPositions(matches.slice(0, HIGHLIGHTED).map(p => p.id));
+            latestResults = matches.map(item => item.id);
+            UI.markPositions(matches.slice(0, HIGHLIGHTED).map(item => item.id));
             document.getElementById('products-section').scrollIntoView({ behavior: 'smooth' });
-
-            const applied = {
-                query: query || undefined,
-                color: color || undefined,
-                brand: filters.brand,
-                max_price: filters.maxPrice,
-                min_rating: filters.minRating,
-                min_wind_mph: filters.minWind,
-                max_weight_oz: filters.maxWeight,
-                automatic_open: filters.autoOpen,
-                sort_by: filters.sortBy,
-            };
-            const report = {
-                total_matches: matches.length,
-                query_used: query,
-                color_used: color || null,
-                filters_applied: JSON.parse(JSON.stringify(applied)),  // drops the unset ones
-            };
+            const applied = { query: query || undefined, color: color || undefined,
+                brand: filters.brand, max_price: filters.maxPrice, min_rating: filters.minRating,
+                ...filters.attributeFilters, sort_by: filters.sortBy };
+            const report = { total_matches: matches.length, query_used: query, color_used: color || null,
+                filters_applied: JSON.parse(JSON.stringify(applied)) };
             if (ignored.length) {
                 report.ignored_words = ignored;
-                report.ignored_note = 'No umbrella in the store mentions these words, so they were left out of the search. '
-                    + 'If they mattered to the user, say the store has nothing like that.';
+                report.ignored_note = 'No product mentions these words, so they were left out. If they mattered, explain that the store has no such product.';
             }
-            if (!matches.length) {
-                return { ...report, results: [], note: 'No umbrellas match these filters. Tell the user and offer to relax one of them.' };
-            }
-            return {
-                ...report,
-                results: matches.slice(0, MAX_RESULTS).map(summary),
-                note: `Positions 1 to ${matches.length} are valid for this search, including ones not listed here; `
-                    + 'earlier positions no longer apply.',
-            };
+            if (!matches.length) return { ...report, results: [], note: 'No products match. Offer to relax one requirement.' };
+            return { ...report, results: matches.slice(0, MAX_RESULTS).map(summary),
+                note: 'Positions 1 to ' + matches.length + ' are valid in this search; earlier positions no longer apply.' };
         },
 
         show_product(args) {
@@ -497,7 +334,7 @@ const AgentTools = (() => {
             return details(p);
         },
 
-        compare_products(args) {
+        async compare_products(args) {
             const picked = args.positions && args.positions.length
                 ? args.positions.map(n => atPosition(n).id)
                 : (args.product_ids || []).map(String);
@@ -507,11 +344,11 @@ const AgentTools = (() => {
             }
             ids.forEach(product);  // unknown ids fail before anything changes on screen
             App.closeAllPanels();
-            App.compareProducts(ids);
-            return compareResult();
+            const data = await App.compareProducts(ids);
+            return comparisonForCurrent(data);
         },
 
-        update_compare(args) {
+        async update_compare(args) {
             const current = App.getCompareIds();
             let next;
             if (args.action === 'clear') {
@@ -521,7 +358,7 @@ const AgentTools = (() => {
                 const byColumn = (args.columns || []).map(c => {
                     const col = Number(c);
                     if (!Number.isInteger(col) || col < 1 || col > current.length) {
-                        throw new Error(`Column ${c} does not exist; the comparison has ${current.length} umbrellas.`);
+                        throw new Error(`Column ${c} does not exist; the comparison has ${current.length} products.`);
                     }
                     return current[col - 1];
                 });
@@ -538,16 +375,16 @@ const AgentTools = (() => {
                 if (!added.length) throw new Error('Say which to add: positions or product_ids.');
                 next = [...new Set([...current, ...added])];
                 if (next.length > 3) {
-                    throw new Error(`At most 3 umbrellas can be compared; ${current.length} already are. Ask which one to remove first.`);
+                    throw new Error(`At most 3 products can be compared; ${current.length} already are. Ask which one to remove first.`);
                 }
             } else {
                 throw new Error(`Unknown action "${args.action}". Use remove, add or clear.`);
             }
-            App.compareProducts(next);
-            const result = compareResult();
+            const data = await App.compareProducts(next);
+            const result = await comparisonForCurrent(data);
             if (next.length < 2) {
                 result.note = next.length
-                    ? 'Only one umbrella is left, so the comparison closed. Offer to add another one to compare.'
+                    ? 'Only one product is left, so the comparison closed. Offer to add another one to compare.'
                     : 'The comparison is empty and closed.';
             }
             return result;
@@ -580,7 +417,7 @@ const AgentTools = (() => {
             App.closeAllPanels();  // the cart opens on its own, not on top of a detail page or comparison
             App.openCart();
             const result = cartResult();
-            if (!result.items.length) result.note = 'The cart is empty. Tell the user and offer to help them find an umbrella.';
+            if (!result.items.length) result.note = 'The cart is empty. Tell the user and offer to help them find a product.';
             return result;
         },
 
@@ -606,7 +443,7 @@ const AgentTools = (() => {
                 }
             }
             if (!App.getCartSummary().items.length) {
-                throw new Error('The cart is empty. Tell the user and offer to help them find an umbrella.');
+                throw new Error('The cart is empty. Tell the user and offer to help them find a product.');
             }
             App.closeAllPanels();  // checkout opens on its own, not on top of a detail page or comparison
             App.openCheckout();

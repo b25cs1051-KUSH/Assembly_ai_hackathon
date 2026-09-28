@@ -41,25 +41,21 @@ const VoiceAgent = (() => {
         while (panel.childElementCount > DEBUG_LINES) panel.firstElementChild.remove();
     }
 
-    const SYSTEM_PROMPT = `You are the voice shopping assistant for VoiceCart, an online umbrella store.
-You are talking out loud, so never use markdown, lists, emojis or symbols.
-Make each answer exactly as long as the question needs. If one sentence fully answers it, say one sentence. If the user asks about several umbrellas, a comparison or the details of a product, cover each thing they asked about in a short, clear sentence. Keep it simple and friendly, and stop once the question is answered: do not pad, repeat yourself, or read out everything on the screen.
-Round prices when speaking, for example "about thirty dollars".
-Be warm, friendly and humble, like a helpful friend in the store. If you get something wrong, apologise briefly and correct yourself.
-Whenever the user describes what they want or changes a requirement, call search_products. It updates the products on the user's screen. Each call replaces the previous filters, so include every requirement the user still wants.
-Only talk about products, prices, specs and ratings that a tool returned. Never invent them. If you do not know something, say so.
-After a search, say how many matched and introduce the top results by position and brand, each with the point that matters most for what the user asked, for example "Two match. The first one, the TUMELLA, handles the strongest wind, and the second one, the SoulRain, is a classic wooden stick umbrella." Cover up to three results this way, then ask which one interests them.
-Results are numbered by position, so "the second one" means position two of the latest search. When the user refers to a result by its number or order, pass its position from the latest search; never guess an id. Positions from earlier searches no longer apply.
-Every position from 1 to total_matches is valid, even the ones not listed in the search result, so always call the tool with the number the user said. If the tool says the number is out of range, tell the user how many umbrellas are in the results, that their number is out of range, and ask if they want the last one instead.
-When the user asks for more about a product or what people say, call show_product. When they want to compare or choose, call compare_products with two or three positions.
-Each umbrella lists its color, and other_colors if it comes in more than one. When the user asks to see an umbrella in a different color, call show_product with that umbrella's position or id and the color. To buy it in a color, pass the color to update_cart or checkout. For "a red umbrella" in general, call search_products with color. If a tool says the color does not exist, tell the user which colors it comes in.
-To take an umbrella out of the comparison, add one to it, or close it, call update_compare. In the comparison, "the second one" means the second column, so pass columns for removals.
-Use update_cart to add, remove or change quantities. When the user asks to see their cart or what is in it, call show_cart. When the user wants to pay, call checkout, say what is in the order and the total, and ask them to confirm. If they ask to check out or buy a specific umbrella, pass it to checkout, which adds it to the cart and opens checkout in one step. Only call place_order with user_confirmed true after they clearly say yes. If they say no, do not place it.
-If nothing matches, say so and offer to relax one requirement, such as the price.
-The page already plays a short acknowledgement such as "Sure, let me look" when the user asks for something, so start your answer with the answer itself, not with "sure", "okay" or "let me look".
-You remember this whole visit. If you are given the earlier conversation and what is on screen, continue from there and never start over.`;
+    const SYSTEM_PROMPT = `You are a voice shopping assistant for the active store.
+You speak aloud. Use short, clear sentences; do not use markdown, lists, emojis, or symbols.
+The active catalog is your only source of product facts. It is available through the provided tools: search_products for discovery, show_product for full recorded details, and compare_products for recorded side-by-side values. Do not claim you opened a URL or fetched data outside these tools. Never invent a product, price, attribute, review, availability, shipping promise, or comparison result. If a fact is absent, say you do not have it.
+When a shopper describes or changes requirements, call search_products. Each search replaces the previous filters, so carry forward requirements they still want. Say how many match and briefly introduce up to three relevant results by position. Positions refer to the latest search; pass the spoken position rather than guessing an id. If a position is out of range, explain the count and ask about an available one.
+For product details, options, or reviews call show_product. For choosing between two or three products call compare_products. For changes to the open comparison call update_compare; a column number refers to the current comparison.
+Use update_cart to add, remove, or set quantities. Use show_cart when asked what is in the cart. Use checkout to show the current simulated checkout total, adding a named product first if requested. Read the items and total, then ask for confirmation. Call place_order with user_confirmed true only after the shopper clearly agrees; if they decline, do not place it. Do not describe the simulated checkout as completed payment.
+Mention only product values and ranking supplied by tool results. A highlighted preference is a general comparison rule, not a universal claim about what the shopper values. If a tool fails, explain the error without guessing.
+The page may already play a short acknowledgement. Start the answer with the requested information rather than another acknowledgement. When given visit history or screen context, continue the same conversation.`;
 
-    const GREETING = "Hi, I'm your VoiceCart shopping assistant. What kind of umbrella are you looking for today?";
+    function firstGreeting() {
+        const manifest = App.getManifest();
+        return manifest.presentation === 'umbrella_demo'
+            ? "Hi, I'm your VoiceCart shopping assistant. What kind of umbrella are you looking for today?"
+            : "Hi, I'm your VoiceCart shopping assistant. What kind of " + manifest.display_name.toLowerCase() + " are you looking for today?";
+    }
 
     // Measured with scripts/voice_latency.py: max_silence 4000 → 2000 cuts time to first audio by ~2.5 s;
     // lower values make reply audio arrive with multi-second gaps.
@@ -183,7 +179,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
                 type: 'session.update',
                 session: {
                     system_prompt: SYSTEM_PROMPT,
-                    greeting: returning ? returnGreeting() : GREETING,
+                    greeting: returning ? returnGreeting() : firstGreeting(),
                     tools: AgentTools.definitions(),
                     input: {
                         keyterms: AgentTools.keyterms(),
@@ -426,7 +422,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
     const ORDINALS = { first: 1, second: 2, third: 3, one: 1, two: 2, three: 3 };
     // Only explicit references count: "the first one", "number two", "the last one"; not "at first".
     const POSITION_PATTERNS = [
-        [/\b(first|second|third)\s+(?:one|option|pick|umbrella)\b/gi, m => ORDINALS[m[1].toLowerCase()]],
+        [/\b(first|second|third)\s+(?:one|option|pick|product|item)\b/gi, m => ORDINALS[m[1].toLowerCase()]],
         [/\b(?:number|option)\s+(one|two|three)\b/gi, m => ORDINALS[m[1].toLowerCase()]],
         [/\bthe\s+last\s+one\b/gi, () => 'last'],
     ];
@@ -618,7 +614,9 @@ You remember this whole visit. If you are given the earlier conversation and wha
 
     function returnGreeting() {
         const n = App.getCartSummary().itemCount;
-        if (n) return `Welcome back! You still have ${n === 1 ? 'one umbrella' : `${n} umbrellas`} in your cart.`;
+        if (n) return App.getManifest().presentation === 'umbrella_demo'
+            ? `Welcome back! You still have ${n === 1 ? 'one umbrella' : `${n} umbrellas`} in your cart.`
+            : `Welcome back! You still have ${n} item${n === 1 ? '' : 's'} in your cart.`;
         return 'Welcome back! Where were we?';
     }
 
@@ -644,7 +642,7 @@ You remember this whole visit. If you are given the earlier conversation and wha
             'Right now on screen:',
             `- Latest search results, by position: ${results.length ? results.join('; ') : 'none'}.`,
             `- Open view: ${viewText}.`,
-            `- Cart: ${cart.items.length ? `${cart.items.map(i => `${i.qty} × ${i.name}`).join(', ')}; total $${cart.total}` : 'empty'}.`,
+            `- Cart: ${cart.items.length ? `${cart.items.map(i => `${i.qty} × ${i.name}`).join(', ')}; total ${App.formatPrice(cart.total)}` : 'empty'}.`,
         ].join('\n');
     }
 
@@ -705,6 +703,9 @@ You remember this whole visit. If you are given the earlier conversation and wha
             if (stale()) { stream.getTracks().forEach(t => t.stop()); return; }
             micStream = stream;
             await audioCtx.audioWorklet.addModule('js/mic_worklet.js?v=17');
+            if (stale()) return;
+
+            await App.whenReady();
             if (stale()) return;
 
             // Tokens are single-use and short-lived: mint right before connecting.
@@ -781,7 +782,8 @@ You remember this whole visit. If you are given the earlier conversation and wha
             log('debug on', { localVad: SPEECH_RMS, turnDetection: TURN_DETECTION });
         }
         loadAcks();
-        UI.renderGuide(GUIDE);
+        UI.renderGuide(App.getManifest()?.presentation === 'umbrella_demo' ? GUIDE
+            : (App.getManifest()?.guide_questions || []).map(phrase => ({ phrase, feature: 'Shop by voice using this store catalog' })));
         $('#hero-voice-btn').addEventListener('click', start);
         window.addEventListener('pagehide', () => {
             if (ws && ws.readyState === WebSocket.OPEN) send({ type: 'session.end' });
@@ -789,6 +791,8 @@ You remember this whole visit. If you are given the earlier conversation and wha
         setStatus('idle');
     }
 
+    document.addEventListener('catalog:ready', () => UI.renderGuide(App.getManifest().presentation === 'umbrella_demo'
+        ? GUIDE : App.getManifest().guide_questions.map(phrase => ({ phrase, feature: 'Shop by voice using this store catalog' }))));
     document.addEventListener('DOMContentLoaded', init);
 
     return { start, stop, findMentions };  // findMentions is exposed for scripts/test_mentions.js

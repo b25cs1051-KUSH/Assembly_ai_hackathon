@@ -1,11 +1,13 @@
-/* =================================================================
-   App — state management, API calls, event wiring for VoiceCart AI
+﻿/* =================================================================
+   App â€” state management, API calls, event wiring for VoiceCart AI
    ================================================================= */
 
 const App = (() => {
-    /* ── STATE ──────────────────────────────────────────────────── */
+    /* â”€â”€ STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const state = {
         products: [],
+        manifest: null,
+        version: null,
         filtered: [],
         cart: [],            // { id, qty }
         compareSet: new Set(),
@@ -15,7 +17,7 @@ const App = (() => {
         priceCeiling: 100,   // slider max, derived from the catalog
     };
 
-    /* ── HELPERS ────────────────────────────────────────────────── */
+    /* â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function defaultFilters() {
         return {
             brand: 'all',
@@ -24,8 +26,9 @@ const App = (() => {
             minWind: 0,
             minRating: 0,
             maxWeight: Infinity,
-            autoOpen: false,     // true → only automatic-open umbrellas
+            autoOpen: false,     // true â†’ only automatic-open umbrellas
             search: '',
+            attributeFilters: {},
             sortBy: 'relevance',
         };
     }
@@ -35,8 +38,8 @@ const App = (() => {
         price_low_to_high: (a, b) => a.price - b.price,
         price_high_to_low: (a, b) => b.price - a.price,
         rating: (a, b) => b.rating - a.rating,
-        lightest: (a, b) => a.specs.weight_oz - b.specs.weight_oz,
-        most_wind_resistant: (a, b) => b.specs.wind_rating_mph - a.specs.wind_rating_mph,
+        lightest: (a, b) => (a.attributes?.weight_oz ?? Infinity) - (b.attributes?.weight_oz ?? Infinity),
+        most_wind_resistant: (a, b) => (b.attributes?.wind_rating_mph ?? -Infinity) - (a.attributes?.wind_rating_mph ?? -Infinity),
     };
 
     const $ = sel => document.querySelector(sel);
@@ -53,37 +56,120 @@ const App = (() => {
 
     const colorFamilies = () => [...new Set(state.products.map(p => p.color_family).filter(Boolean))].sort();
 
-    /* ── API ────────────────────────────────────────────────────── */
+    /* â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    let readyPromise;
     async function fetchProducts() {
-        const res = await fetch('/api/products');
-        state.products = await res.json();
-        initFilterControls();  // also applies the (reset) filters
+        const res = await fetch('/api/catalog');
+        if (!res.ok) throw new Error('Could not load the store catalog');
+        const catalog = await res.json();
+        state.manifest = catalog.manifest;
+        state.version = catalog.version;
+        state.products = catalog.products;
+        configureCategoryCopy();
+        initFilterControls();
+        document.dispatchEvent(new Event('catalog:ready'));
+    }
+
+    function configureCategoryCopy() {
+        if (state.manifest.presentation === 'umbrella_demo') return;
+        const label = state.manifest.display_name;
+        document.title = 'VoiceCart AI \u2014 ' + label;
+        document.querySelector('meta[name="description"]').content =
+            'Voice-powered shopping for ' + label.toLowerCase() + '.';
+        $('#search-input').placeholder = 'Search ' + label.toLowerCase() + '\u2026';
+        $('#admin-btn').title = 'Add a product';
+        $('.hero-deco').textContent = '\u2726';
+        $('#products-title').textContent = 'All ' + label;
+        $('#empty-state p').textContent = 'No ' + label.toLowerCase() + ' match your filters.';
+        const questions = state.manifest.guide_questions || [];
+        if (questions.length) {
+            $('.hero-accent').textContent = 'â€œ' + questions[0] + 'â€';
+            document.querySelectorAll('#agent-hints .hint-chip').forEach((chip, i) => {
+                chip.textContent = 'â€œ' + (questions[i] || questions[0]) + 'â€';
+            });
+        }
+        const labels = state.manifest.attributes.map(a => a.label).slice(0, 4)
+            .concat(['Review-backed answers', 'Just ask out loud', 'Compare by voice', 'Hands-free checkout']);
+        document.querySelectorAll('.marquee-track > span:not(.marquee-dot)').forEach((node, i) => {
+            node.textContent = labels[i % labels.length];
+        });
     }
 
     function showNewProduct(product) {
+        // A live voice session holds its tool definitions from session.update.
+        // End it before exposing a newly published catalog version.
+        VoiceAgent.stop();
         state.products.push(product);
+        if (product.catalog_version) state.version = product.catalog_version;
         initFilterControls();
         $('#products-section').scrollIntoView({ behavior: 'smooth' });
     }
 
-    /* Brand list and slider ranges come from the catalog, not hard-coded values */
+    /* The original umbrella controls stay intact; other categories use the same styled control groups. */
     function initFilterControls() {
-        const brands = [...new Set(state.products.map(p => p.brand))].sort((a, b) => a.localeCompare(b));
+        const brands = [...new Set(state.products.map(p => p.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b));
         const brandSelect = $('#filter-brand');
-        brandSelect.length = 1;  // keep "All Brands"
+        brandSelect.length = 1;
         brands.forEach(b => brandSelect.add(new Option(b, b)));
+        brandSelect.parentElement.style.display = brands.length ? '' : 'none';
 
         const colorSelect = $('#filter-color');
-        colorSelect.length = 1;  // keep "All Colors"
+        colorSelect.length = 1;
         colorFamilies().forEach(c => colorSelect.add(new Option(c, c.toLowerCase())));
+        const umbrella = state.manifest.presentation === 'umbrella_demo';
+        colorSelect.parentElement.style.display = umbrella ? '' : 'none';
+        $('#filter-wind').parentElement.style.display = umbrella ? '' : 'none';
+        $('#filter-rating').parentElement.style.display = umbrella ? '' : 'none';
+        document.querySelectorAll('[data-dynamic-filter]').forEach(node => node.remove());
 
-        const maxPrice = Math.max(...state.products.map(p => p.price));
-        state.priceCeiling = Math.ceil(maxPrice / 5) * 5;
+        const maxPrice = Math.max(0, ...state.products.map(p => p.price));
+        state.priceCeiling = Math.max(5, Math.ceil(maxPrice / 5) * 5);
         $('#filter-price').max = state.priceCeiling;
-
-        const maxWind = Math.max(...state.products.map(p => p.specs.wind_rating_mph));
-        $('#filter-wind').max = Math.ceil(maxWind / 5) * 5;
-
+        if (umbrella) {
+            const maxWind = Math.max(0, ...state.products.map(p => Number(p.attributes.wind_rating_mph || 0)));
+            $('#filter-wind').max = Math.ceil(maxWind / 5) * 5;
+        } else {
+            const container = $('#filters-inner');
+            for (const attribute of state.manifest.attributes) {
+                for (const filter of attribute.filters) {
+                    if (!filter.ui_label) continue;
+                    const group = document.createElement('div');
+                    group.className = 'filter-group';
+                    group.dataset.dynamicFilter = filter.parameter;
+                    const label = document.createElement('label');
+                    const id = 'category-filter-' + filter.parameter;
+                    label.htmlFor = id;
+                    label.textContent = filter.ui_label;
+                    const values = state.products.map(p => p.attributes[attribute.key]).filter(v => v !== undefined && v !== null);
+                    let control;
+                    if (attribute.kind === 'number') {
+                        control = document.createElement('input');
+                        control.type = 'range';
+                        control.min = '0';
+                        control.max = String(Math.max(1, Math.ceil(Math.max(...values.map(Number)) / (filter.ui_step || 1)) * (filter.ui_step || 1)));
+                        control.step = String(filter.ui_step || 1);
+                        control.value = filter.operator === 'max' ? control.max : '0';
+                        const shown = document.createElement('span');
+                        shown.className = 'category-filter-value';
+                        group.append(label, control, shown);
+                    } else {
+                        control = document.createElement('select');
+                        control.add(new Option('Any', ''));
+                        const options = attribute.kind === 'boolean' ? [true, false] : [...new Set(values)].sort();
+                        options.forEach(value => control.add(new Option(
+                            typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value), String(value))));
+                        group.append(label, control);
+                    }
+                    control.id = id;
+                    control.addEventListener(attribute.kind === 'number' ? 'input' : 'change', () => {
+                        state.filters.attributeFilters[filter.parameter] = control.value;
+                        syncFilterControls();
+                        applyFilters();
+                    });
+                    container.insertBefore(group, $('#filter-reset'));
+                }
+            }
+        }
         resetFilters();
     }
 
@@ -91,27 +177,22 @@ const App = (() => {
         const res = await fetch('/api/products/compare', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
+            body: JSON.stringify({ ids, version: state.version }),
         });
+        if (!res.ok) throw new Error('Could not compare products from this catalog version');
         return res.json();
     }
 
-    /* ── FILTERS ────────────────────────────────────────────────── */
+    /* â”€â”€ FILTERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function applyFilters() {
         const f = state.filters;
-        // Every search word must appear somewhere, in any order ("clear bubble" matches "Clear Bubble Umbrella").
-        const words = f.search.toLowerCase().split(/\s+/).filter(Boolean);
+        if (!state.manifest) return;
         state.filtered = state.products.filter(p => {
-            if (f.brand !== 'all' && p.brand !== f.brand) return false;
-            if (f.color && !colorMatches(p, f.color)) return false;
-            if (p.price > f.maxPrice) return false;
-            if (p.specs.wind_rating_mph < f.minWind) return false;
-            if (p.rating < f.minRating) return false;
-            if (p.specs.weight_oz > f.maxWeight) return false;
-            if (f.autoOpen && !p.specs.automatic_open) return false;
-            if (words.length) {
-                const haystack = `${p.name} ${p.brand} ${p.color} ${p.color_family} ${p.description} ${p.specs.frame_material}`.toLowerCase();
-                if (!words.every(w => haystack.includes(w))) return false;
+            if (!CatalogRuntime.matches(p, state.manifest, f)) return false;
+            if (state.manifest.presentation === 'umbrella_demo') {
+                if ((p.attributes.wind_rating_mph ?? 0) < f.minWind) return false;
+                if ((p.attributes.weight_oz ?? Infinity) > f.maxWeight) return false;
+                if (f.autoOpen && p.attributes.automatic_open !== true) return false;
             }
             return true;
         });
@@ -120,21 +201,31 @@ const App = (() => {
         UI.renderGrid(state.filtered, state.compareSet);
     }
 
-    /* Moves the filter bar controls to match state.filters (the voice agent sets filters too) */
     function syncFilterControls() {
         const f = state.filters;
         const price = Math.min(f.maxPrice, state.priceCeiling);
         $('#filter-brand').value = f.brand;
-        // The select lists color families; a spoken color name that is not one shows as "All Colors"
         $('#filter-color').value = [...$('#filter-color').options].some(o => o.value === f.color) ? f.color : '';
         $('#filter-price').value = price;
-        $('#filter-price-label').textContent = `$${price}`;
-        $('#filter-wind').value = f.minWind;
-        $('#filter-wind-label').textContent = `${f.minWind} mph`;
-        // The select only has fixed steps: show the closest one that is not stricter than the filter.
+        $('#filter-price-label').textContent = state.manifest.presentation === 'umbrella_demo'
+            ? '$' + price : CatalogRuntime.money(price, state.manifest.currency);
+        const wind = f.attributeFilters.min_wind_mph ?? f.minWind;
+        $('#filter-wind').value = wind;
+        $('#filter-wind-label').textContent = wind + ' mph';
         const ratingSteps = [...$('#filter-rating').options].map(o => +o.value).filter(v => v <= f.minRating);
         $('#filter-rating').value = Math.max(...ratingSteps);
         $('#search-input').value = f.search;
+        document.querySelectorAll('[data-dynamic-filter]').forEach(group => {
+            const control = group.querySelector('input, select');
+            const parameter = group.dataset.dynamicFilter;
+            const chosen = f.attributeFilters[parameter];
+            control.value = chosen === undefined ? (control.type === 'range' && parameter.startsWith('max_') ? control.max : (control.type === 'range' ? '0' : '')) : String(chosen);
+            const shown = group.querySelector('.category-filter-value');
+            if (shown) {
+                const rule = state.manifest.attributes.find(a => a.filters.some(filter => filter.parameter === parameter));
+                shown.textContent = control.value + (rule.unit ? ' ' + rule.unit : '');
+            }
+        });
     }
 
     function resetFilters() {
@@ -146,12 +237,18 @@ const App = (() => {
     /* Replaces all filters at once; returns the matching products in display order */
     function setFilters(partial) {
         state.filters = { ...defaultFilters(), ...partial };
+        if (state.manifest.presentation === 'umbrella_demo') {
+            const attributes = state.filters.attributeFilters;
+            if (attributes.min_wind_mph !== undefined) state.filters.minWind = Number(attributes.min_wind_mph);
+            if (attributes.max_weight_oz !== undefined) state.filters.maxWeight = Number(attributes.max_weight_oz);
+            if (attributes.automatic_open !== undefined) state.filters.autoOpen = attributes.automatic_open === true;
+        }
         syncFilterControls();
         applyFilters();
         return state.filtered;
     }
 
-    /* ── COMPARE ────────────────────────────────────────────────── */
+    /* â”€â”€ COMPARE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function toggleCompare(id) {
         if (state.compareSet.has(id)) {
             state.compareSet.delete(id);
@@ -175,6 +272,7 @@ const App = (() => {
         if (request !== compareRequest) return;
         UI.renderCompare(data);
         UI.openPanel('compare-overlay', 'compare-modal');
+        return data;
     }
 
     /* Replaces the compare selection (used by the voice agent): opens the modal with 2 or 3, closes it with fewer */
@@ -189,16 +287,16 @@ const App = (() => {
         return Promise.resolve();
     }
 
-    /* ── DETAIL ─────────────────────────────────────────────────── */
+    /* â”€â”€ DETAIL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function openDetail(id) {
         const p = productById(id);
         if (!p) return;
         state.detailId = p.id;
-        UI.renderDetail(p, state.products.filter(x => x.model === p.model));
+        UI.renderDetail(p, p.variant_group ? state.products.filter(x => x.variant_group === p.variant_group) : [p]);
         UI.openPanel('detail-overlay', 'detail-drawer');
     }
 
-    /* ── CART ────────────────────────────────────────────────────── */
+    /* â”€â”€ CART â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function addToCart(id, qty = 1) {
         const existing = state.cart.find(i => i.id === id);
         if (existing) {
@@ -209,7 +307,7 @@ const App = (() => {
         syncCart();
         UI.bumpBadge('cart-badge');
         const p = productById(id);
-        UI.toast(`${qty > 1 ? `${qty} × ` : ''}${p ? p.name : 'Item'} added to cart`);
+        UI.toast(`${qty > 1 ? `${qty} Ã— ` : ''}${p ? p.name : 'Item'} added to cart`);
     }
 
     function removeFromCart(id) {
@@ -254,7 +352,7 @@ const App = (() => {
         UI.openPanel('cart-overlay', 'cart-drawer');
     }
 
-    /* ── CHECKOUT ───────────────────────────────────────────────── */
+    /* â”€â”€ CHECKOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     // True from the moment checkout is requested: the modal itself opens 300 ms later, after the cart slides away.
     let checkoutOpening = false;
     let checkoutTimer;
@@ -277,12 +375,14 @@ const App = (() => {
     function placeOrder() {
         const orderNumber = `VC-${Date.now().toString().slice(-6)}`;
         const count = state.cart.reduce((s, i) => s + i.qty, 0);
-        const what = count > 1 ? 'umbrellas' : 'umbrella';
+        const what = state.manifest.presentation === 'umbrella_demo' ? (count > 1 ? 'umbrellas' : 'umbrella') : (count > 1 ? 'items' : 'item');
         state.orders++;
         $('#confirm-title').textContent = state.orders === 1
             ? `Congratulations on your first ${what}!`
             : `Congratulations on your new ${what}!`;
-        $('#confirm-message').textContent = `Your ${count > 1 ? `${count} umbrellas are` : 'umbrella is'} on the way.`;
+        $('#confirm-message').textContent = state.manifest.presentation === 'umbrella_demo'
+            ? `Your ${count > 1 ? `${count} umbrellas are` : 'umbrella is'} on the way.`
+            : `Your ${count > 1 ? `${count} items are` : 'item is'} on the way.`;
         $('#confirm-order-number').textContent = `Order number ${orderNumber}`;
         state.cart = [];
         UI.closePanel('checkout-overlay', 'checkout-modal');
@@ -304,14 +404,14 @@ const App = (() => {
         return { view: 'grid' };
     }
 
-    /* ── EVENT WIRING ───────────────────────────────────────────── */
+    /* â”€â”€ EVENT WIRING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function bind() {
         /* Filters */
         $('#filter-brand').addEventListener('change', e => { state.filters.brand = e.target.value; applyFilters(); });
         $('#filter-color').addEventListener('change', e => { state.filters.color = e.target.value; applyFilters(); });
         $('#filter-price').addEventListener('input', e => {
             state.filters.maxPrice = +e.target.value;
-            $('#filter-price-label').textContent = `$${e.target.value}`;
+            $('#filter-price-label').textContent = App.formatPrice(Number(e.target.value));
             applyFilters();
         });
         $('#filter-wind').addEventListener('input', e => {
@@ -346,7 +446,7 @@ const App = (() => {
         });
 
         /* Header actions */
-        $('#compare-btn').addEventListener('click', openCompare);
+        $('#compare-btn').addEventListener('click', () => openCompare().catch(err => UI.toast(err.message)));
         $('#cart-btn').addEventListener('click', openCart);
 
         /* Close buttons */
@@ -383,23 +483,28 @@ const App = (() => {
         if ($('#admin-modal').classList.contains('open')) Admin.close();
     }
 
-    /* ── INIT ───────────────────────────────────────────────────── */
+    /* â”€â”€ INIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     async function init() {
         bind();
-        await fetchProducts();
+        readyPromise = fetchProducts();
+        try { await readyPromise; } catch (err) { UI.toast(err.message); }
     }
 
     document.addEventListener('DOMContentLoaded', init);
 
-    /* ── PUBLIC API (inline onclick handlers and agent tools) ────── */
+    /* â”€â”€ PUBLIC API (inline onclick handlers and agent tools) â”€â”€â”€â”€â”€â”€ */
     return {
         showNewProduct,
         getProducts: () => state.products,
+        getManifest: () => state.manifest,
+        getVersion: () => state.version,
+        whenReady: () => readyPromise || Promise.reject(new Error('Catalog is not ready')),
+        formatPrice: value => CatalogRuntime.money(value, state.manifest?.currency || 'USD'),
         getVisible: () => state.filtered,
         getCompareIds: () => [...state.compareSet],
         getBrands: () => [...new Set(state.products.map(p => p.brand))].sort((a, b) => a.localeCompare(b)),
         colorMatches,
-        sortOptions: Object.keys(SORTERS),
+        get sortOptions() { return state.manifest?.presentation === 'umbrella_demo' ? Object.keys(SORTERS) : ['relevance', 'price_low_to_high', 'price_high_to_low', 'rating']; },
         setFilters,
         toggleCompare,
         openDetail,

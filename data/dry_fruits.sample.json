@@ -1,0 +1,17 @@
+[
+  {
+    "sku": "DF-ALM-250", "title": "California Raw Almonds 250 g", "about": "Crunchy raw almonds in a resealable 250 gram pack.",
+    "price_usd": 8.99, "photo_url": "https://placehold.co/600x600?text=Almonds", "maker": "Harvest Pantry",
+    "properties": {"pack_weight": "250 g", "origin": "California", "protein_g_per_100g": 21.2, "roasted": false}
+  },
+  {
+    "sku": "DF-ALM-500", "title": "California Roasted Almonds 500 g", "about": "Lightly roasted almonds in a resealable half-kilogram pack.",
+    "price_usd": 15.49, "photo_url": "https://placehold.co/600x600?text=Roasted+Almonds", "maker": "Harvest Pantry",
+    "properties": {"pack_weight": "0.5 kg", "origin": "California", "protein_g_per_100g": 21.2, "roasted": true}
+  },
+  {
+    "sku": "DF-CAS-200", "title": "Whole Cashews 200 g", "about": "Creamy whole cashews packed in a resealable pouch.",
+    "price_usd": 9.75, "photo_url": "https://placehold.co/600x600?text=Cashews", "maker": "Orchard Box",
+    "properties": {"pack_weight": "200 g", "origin": "India", "protein_g_per_100g": 18.2, "roasted": false}
+  }
+]

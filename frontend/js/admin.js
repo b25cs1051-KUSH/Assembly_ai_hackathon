@@ -24,6 +24,52 @@ const Admin = (() => {
         return value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     }
 
+    function configureCategoryForm() {
+        const manifest = App.getManifest();
+        if (!manifest || manifest.presentation === 'umbrella_demo') return;
+        $('#admin-title').textContent = 'Add a product';
+        $('.admin-intro').textContent = 'Enter the product details for this catalog. New listings appear after they are saved.';
+        const form = $('#admin-form');
+        for (const name of ['model', 'color', 'color_family', 'frame_material', 'canopy_size_inches',
+            'wind_rating_mph', 'weight_oz', 'automatic_open']) {
+            const field = form.elements[name];
+            field.required = false;
+            field.closest('.admin-field').style.display = 'none';
+        }
+        form.elements.brand.required = Boolean(manifest.field_map.brand);
+        form.elements.brand.placeholder = 'Brand (if applicable)';
+        form.elements.name.placeholder = 'Product name';
+        form.elements.description.placeholder = 'Describe this product';
+        form.elements.image_url.placeholder = 'https://example.com/product.jpg';
+        form.elements.image_url.pattern = '(?:https?://.*|/img/.*)';
+        form.elements.price.closest('.admin-field').firstChild.textContent = 'Price (' + manifest.currency + ')';
+        const specs = form.querySelectorAll('.admin-fields')[1];
+        specs.querySelectorAll('[data-category-attribute]').forEach(node => node.remove());
+        for (const rule of manifest.attributes) {
+            const label = document.createElement('label');
+            label.className = 'admin-field';
+            label.dataset.categoryAttribute = rule.key;
+            label.append(document.createTextNode(rule.label + (rule.unit ? ' (' + rule.unit + ')' : '')));
+            let control;
+            if (rule.kind === 'boolean' || rule.kind === 'enum') {
+                control = document.createElement('select');
+                control.add(new Option('Not specified', ''));
+                const values = rule.kind === 'boolean' ? [true, false]
+                    : [...new Set(App.getProducts().map(p => p.attributes[rule.key]).filter(v => v !== undefined))];
+                values.forEach(value => control.add(new Option(
+                    typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value), String(value))));
+            } else {
+                control = document.createElement('input');
+                control.type = rule.kind === 'number' ? 'number' : 'text';
+                if (rule.kind === 'number') control.step = 'any';
+                control.maxLength = 120;
+            }
+            control.name = 'attr_' + rule.key;
+            label.append(control);
+            specs.insertBefore(label, specs.querySelector('[name="pros"]').closest('.admin-field'));
+        }
+    }
+
     async function submit(event) {
         event.preventDefault();
         const form = event.currentTarget;
@@ -37,7 +83,7 @@ const Admin = (() => {
             return;
         }
 
-        const product = {
+        let product = {
             name: fields.get('name').trim(),
             brand: fields.get('brand').trim(),
             model: fields.get('model').trim(),
@@ -56,6 +102,20 @@ const Admin = (() => {
             pros,
             cons,
         };
+        if (App.getManifest()?.presentation !== 'umbrella_demo') {
+            const attributes = {};
+            for (const rule of App.getManifest().attributes) {
+                const raw = fields.get('attr_' + rule.key);
+                if (raw === null || String(raw).trim() === '') continue;
+                attributes[rule.key] = rule.kind === 'number' ? Number(raw)
+                    : rule.kind === 'boolean' ? raw === 'true' : String(raw).trim();
+            }
+            product = {
+                name: fields.get('name').trim(), brand: fields.get('brand').trim(),
+                price: Number(fields.get('price')), image_url: fields.get('image_url').trim(),
+                description: fields.get('description').trim(), attributes, pros, cons,
+            };
+        }
         const save = $('#admin-submit');
         save.disabled = true;
         save.textContent = 'Saving &';
@@ -111,5 +171,6 @@ const Admin = (() => {
     }
 
     document.addEventListener('DOMContentLoaded', bind);
+    document.addEventListener('catalog:ready', configureCategoryForm);
     return { close };
 })();

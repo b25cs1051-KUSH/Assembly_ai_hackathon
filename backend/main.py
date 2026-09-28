@@ -2,20 +2,22 @@
 
 import logging
 import secrets
+import uuid
 from pathlib import Path
-from urllib.parse import urlparse
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ValidationError
 
 from backend import config
+from backend.services.catalog import CatalogManifest, Product, normalize_catalog
 from backend.services.product_service import (
     add_product,
     compare_products,
     get_all_products,
+    get_catalog,
     get_product_by_id,
 )
 
@@ -30,16 +32,20 @@ app = FastAPI(title="VoiceCart AI", version="0.1.0")
 # REST API
 # ---------------------------------------------------------------------------
 
+@app.get("/api/catalog")
+async def api_get_catalog():
+    """Return products and the matching category manifest as one versioned snapshot."""
+    return get_catalog()
+
+
 @app.get("/api/products")
 async def api_get_products():
-    """Return the whole catalog; the browser filters it (the grid and the voice agent's search share one rule)."""
     return get_all_products()
 
 
 @app.get("/api/products/{product_id}")
-async def api_get_product(product_id: str):
-    """Return a single product with full reviews."""
-    product = get_product_by_id(product_id)
+async def api_get_product(product_id: str, version: str | None = None):
+    product = get_product_by_id(product_id, version)
     if product is None:
         return JSONResponse(status_code=404, content={"error": "Product not found"})
     return product
@@ -47,73 +53,55 @@ async def api_get_product(product_id: str):
 
 class CompareRequest(BaseModel):
     ids: list[str]
+    version: str | None = None
 
 
 @app.post("/api/products/compare")
 async def api_compare(body: CompareRequest):
-    """Accept an array of IDs and return comparison matrix payload."""
-    result = compare_products(body.ids)
-    return result
-
-
-class NewProductSpecs(BaseModel):
-    frame_material: str = Field(min_length=1, max_length=120)
-    canopy_size_inches: int = Field(gt=0, le=120)
-    wind_rating_mph: int = Field(ge=0, le=250)
-    weight_oz: float = Field(gt=0, le=200)
-    automatic_open: bool
-
-
-class NewProduct(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    brand: str = Field(min_length=1, max_length=80)
-    model: str = Field(min_length=1, max_length=120)
-    color: str = Field(min_length=1, max_length=60)
-    color_family: str = Field(min_length=1, max_length=60)
-    price: float = Field(gt=0, le=10000)
-    description: str = Field(min_length=1, max_length=1000)
-    image_url: str = Field(min_length=1, max_length=2000)
-    specs: NewProductSpecs
-    pros: list[str] = Field(default_factory=list, max_length=5)
-    cons: list[str] = Field(default_factory=list, max_length=5)
+    try:
+        return compare_products(body.ids, body.version)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=409, detail="Catalog version is no longer available; reload the store")
 
 
 @app.post("/api/admin/products", status_code=201)
-def api_add_product(body: NewProduct, x_admin_password: str = Header(default="")):
-    """Add a manually entered listing; no voice-agent action uses this endpoint."""
+def api_add_product(body: dict, x_admin_password: str = Header(default="")):
+    """Add a listing to the active category; this endpoint is never an agent tool."""
     if not config.ADMIN_PASSWORD:
         raise HTTPException(status_code=503, detail="Admin password is not configured")
     if not secrets.compare_digest(x_admin_password, config.ADMIN_PASSWORD):
         raise HTTPException(status_code=401, detail="Incorrect admin password")
 
-    product = body.model_dump() if hasattr(body, "model_dump") else body.dict()
-    product["specs"] = dict(product["specs"])
-    for key in ("name", "brand", "model", "color", "color_family", "description",
-                "image_url"):
-        product[key] = product[key].strip()
-    product["specs"]["frame_material"] = product["specs"]["frame_material"].strip()
-    product["pros"] = [item.strip() for item in product["pros"] if item.strip()]
-    product["cons"] = [item.strip() for item in product["cons"] if item.strip()]
-
-    text_values = [product[key] for key in ("name", "brand", "model", "color",
-                   "color_family", "description", "image_url")]
-    text_values += [product["specs"]["frame_material"], *product["pros"], *product["cons"]]
-    if any(not value or "<" in value or ">" in value for value in text_values):
-        raise HTTPException(status_code=422, detail="Fields cannot be blank or contain HTML")
-    if '"' in product["name"]:
-        raise HTTPException(status_code=422, detail="Product name cannot contain double quotes")
-    if any(len(item) > 160 for item in (*product["pros"], *product["cons"])):
-        raise HTTPException(status_code=422, detail="Pros and cons must be 160 characters or less")
-
-    image = urlparse(product["image_url"])
-    if (image.scheme not in ("http", "https") or not image.netloc
-            or any(char in product["image_url"] for char in ('"', "'", "`", "\\"))):
-        raise HTTPException(status_code=422, detail="Image URL must be a valid HTTP(S) URL")
-
-    product.update(rating=0, review_count=0, reviews=[],
-                   reviews_summary="No customer reviews yet.")
+    catalog = get_catalog()
+    manifest = CatalogManifest.model_validate(catalog["manifest"])
+    existing = {p["id"] for p in catalog["products"]}
+    if all(pid.isdigit() for pid in existing):
+        next_id = str(max((int(pid) for pid in existing), default=0) + 1)
+    else:
+        next_id = f"{manifest.category_slug}-{uuid.uuid4().hex[:12]}"
     try:
+        if manifest.presentation == "umbrella_demo" and "attributes" not in body:
+            # Preserve the existing umbrella editor's request format.
+            source = {**body, "id": next_id, "rating": 0, "review_count": 0,
+                      "reviews": [], "reviews_summary": "No customer reviews yet."}
+            product = normalize_catalog([source], manifest)[0]
+        else:
+            product = Product.model_validate({
+                **body, "id": next_id, "currency": manifest.currency,
+                "rating": None, "review_count": 0, "reviews": [],
+                "reviews_summary": "No customer reviews yet.",
+            }).model_dump(mode="json")
+        allowed = {attribute.key for attribute in manifest.attributes}
+        if set(product["attributes"]) - allowed:
+            raise ValueError("Unknown category attribute")
+        text_values = [product["name"], product["description"], product["brand"],
+                       *product["pros"], *product["cons"],
+                       *[str(value) for value in product["attributes"].values() if isinstance(value, str)]]
+        if any("<" in value or ">" in value for value in text_values):
+            raise ValueError("Text fields cannot contain HTML")
         return add_product(product)
+    except (ValidationError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except OSError:
         logger.exception("Could not save product catalog")
         raise HTTPException(status_code=503, detail="Catalog storage is unavailable")

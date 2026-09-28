@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "category_slug": "umbrella",
+  "display_name": "Umbrellas",
+  "singular_name": "umbrella",
+  "currency": "USD",
+  "field_map": {
+    "id": "id",
+    "name": "name",
+    "description": "description",
+    "price": "price",
+    "image_url": "image_url",
+    "brand": "brand",
+    "rating": "rating",
+    "review_count": "review_count",
+    "reviews": "reviews",
+    "reviews_summary": "reviews_summary",
+    "pros": "pros",
+    "cons": "cons",
+    "color": "color",
+    "color_family": "color_family",
+    "model": "model",
+    "specs": "specs"
+  },
+  "attributes": [
+    {
+      "key": "frame_material",
+      "source": "specs.frame_material",
+      "label": "Frame Material",
+      "kind": "text",
+      "unit": "",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "none",
+      "confidence": 0.0,
+      "rationale": "Material preference depends on use."
+    },
+    {
+      "key": "canopy_size_inches",
+      "source": "specs.canopy_size_inches",
+      "label": "Canopy Size",
+      "kind": "number",
+      "unit": "in",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 0.85,
+      "rationale": "A larger canopy generally gives more coverage."
+    },
+    {
+      "key": "wind_rating_mph",
+      "source": "specs.wind_rating_mph",
+      "label": "Wind Resistance",
+      "kind": "number",
+      "unit": "mph",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "min_wind_mph",
+          "operator": "min",
+          "description": "Minimum wind resistance in miles per hour; windproof usually means at least 50.",
+          "ui_label": "Min Wind Rating",
+          "ui_step": 5.0
+        }
+      ],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 0.95,
+      "rationale": "Higher tested wind resistance is preferable."
+    },
+    {
+      "key": "weight_oz",
+      "source": "specs.weight_oz",
+      "label": "Weight",
+      "kind": "number",
+      "unit": "oz",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "max_weight_oz",
+          "operator": "max",
+          "description": "Maximum weight in ounces; lightweight usually means at most 14.",
+          "ui_label": null,
+          "ui_step": null
+        }
+      ],
+      "compare": true,
+      "direction": "lower",
+      "confidence": 0.82,
+      "rationale": "Lower weight is easier to carry."
+    },
+    {
+      "key": "automatic_open",
+      "source": "specs.automatic_open",
+      "label": "Auto-Open",
+      "kind": "boolean",
+      "unit": "",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "automatic_open",
+          "operator": "equals",
+          "description": "True for umbrellas that open with one button.",
+          "ui_label": null,
+          "ui_step": null
+        }
+      ],
+      "compare": true,
+      "direction": "none",
+      "confidence": 0.0,
+      "rationale": "Manual and automatic opening suit different shoppers."
+    }
+  ],
+  "comparison_fields": [
+    "price",
+    "rating",
+    "brand",
+    "color",
+    "wind_rating_mph",
+    "weight_oz",
+    "canopy_size_inches",
+    "frame_material",
+    "automatic_open",
+    "pros",
+    "cons"
+  ],
+  "search_fields": [
+    "name",
+    "description",
+    "brand",
+    "color",
+    "frame_material"
+  ],
+  "variant_group_source": "model",
+  "variant_value_source": "color",
+  "search_aliases": [
+    {
+      "phrase": "windproof",
+      "parameter": "min_wind_mph",
+      "value": 50.0
+    },
+    {
+      "phrase": "wind resistant",
+      "parameter": "min_wind_mph",
+      "value": 50.0
+    },
+    {
+      "phrase": "lightweight",
+      "parameter": "max_weight_oz",
+      "value": 14.0
+    },
+    {
+      "phrase": "light",
+      "parameter": "max_weight_oz",
+      "value": 14.0
+    },
+    {
+      "phrase": "auto open",
+      "parameter": "automatic_open",
+      "value": true
+    },
+    {
+      "phrase": "automatic open",
+      "parameter": "automatic_open",
+      "value": true
+    }
+  ],
+  "guide_questions": [
+    "I need a windproof umbrella under 30 dollars",
+    "Compare the first two",
+    "Add it to my cart"
+  ],
+  "presentation": "umbrella_demo",
+  "source_sha256": "6cae428319868849bbe9afbfdf3032d71de746290e70035654fda99d4fe9311f",
+  "preprocessing": {
+    "provider": "template",
+    "model": "",
+    "prompt_version": "catalog-manifest-v1",
+    "validation": "passed",
+    "rejected_fields": ""
+  }
+}

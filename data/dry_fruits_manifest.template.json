@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "category_slug": "dry_fruits",
+  "display_name": "Dry Fruits",
+  "singular_name": "dry fruit product",
+  "currency": "USD",
+  "field_map": {"id": "sku", "name": "title", "description": "about", "price": "price_usd", "image_url": "photo_url", "brand": "maker"},
+  "attributes": [
+    {"key": "pack_weight_g", "source": "properties.pack_weight", "label": "Pack Weight", "kind": "number", "unit": "g", "input_units": {"g": 1, "kg": 1000}, "filters": [{"parameter": "min_pack_weight_g", "operator": "min", "description": "Minimum pack weight in grams.", "ui_label": "Min Pack Weight", "ui_step": 50}], "compare": true, "direction": "none", "confidence": 0.12, "rationale": "A larger pack is not always a better purchase without unit price and user preference."},
+    {"key": "origin", "source": "properties.origin", "label": "Origin", "kind": "enum", "unit": "", "filters": [{"parameter": "origin", "operator": "equals", "description": "Country or region of origin.", "ui_label": "Origin", "ui_step": null}], "compare": true, "direction": "none", "confidence": 0, "rationale": "Origin is a shopper preference."},
+    {"key": "protein_g_per_100g", "source": "properties.protein_g_per_100g", "label": "Protein per 100 g", "kind": "number", "unit": "g", "filters": [{"parameter": "min_protein_g_per_100g", "operator": "min", "description": "Minimum protein grams per 100 grams of product.", "ui_label": "Min Protein / 100 g", "ui_step": 1}], "compare": true, "direction": "higher", "confidence": 0.74, "rationale": "Higher protein is preferable when comparing for protein content."},
+    {"key": "roasted", "source": "properties.roasted", "label": "Roasted", "kind": "boolean", "unit": "", "filters": [{"parameter": "roasted", "operator": "equals", "description": "Whether the dry fruit is roasted.", "ui_label": "Roasted", "ui_step": null}], "compare": true, "direction": "none", "confidence": 0, "rationale": "Roasting is a taste preference."}
+  ],
+  "comparison_fields": ["price", "brand", "pack_weight_g", "origin", "protein_g_per_100g", "roasted"],
+  "search_fields": ["name", "description", "brand", "origin"],
+  "variant_group_source": null, "variant_value_source": null,
+  "search_aliases": [],
+  "guide_questions": ["Show me almonds under ten dollars", "Compare the first two", "Add the first one to my cart"],
+  "presentation": "generic"
+}
