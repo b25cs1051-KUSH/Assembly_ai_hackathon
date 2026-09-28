@@ -14,7 +14,7 @@ Demo store: product photos are from public listings; prices, ratings and reviews
 
 - **Stores have search boxes, not salespeople.** A question you would ask a shop assistant in one sentence becomes a dozen taps. About 70% of online carts are abandoned ([Baymard Institute](https://baymard.com/lists/cart-abandonment-rate), average of 50 studies).
 - **Screens shut people out.** At least 2.2 billion people have a vision impairment ([WHO](https://www.who.int/news-room/fact-sheets/detail/blindness-and-visual-impairment)). With VoiceCart, shopping works without touching the screen.
-- **It fits an existing store.** The agent runs in the browser. A store only needs a product API and a token endpoint, so the voice layer sits on top of the storefront it already has.
+- **It fits different catalogs.** Store owners can onboard a JSON product catalog once, then use the same storefront, eight shopping tools, and category-neutral voice prompt.
 
 ## Try saying
 
@@ -51,11 +51,36 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Add umbrella listings
 
-Click the yellow **plus icon** in the top-right header to open the admin panel. Enter the admin password, product details, image URL, and specifications, then select **Add to catalog**. The product appears in the storefront immediately and is appended to `data/products.json` with a new ID. New listings start with zero reviews. This is a manual UI feature; the voice agent has no admin tool.
+Click the yellow **plus icon** in the top-right header to open the admin panel. Enter the admin password, product details, image URL, and specifications, then select **Add to catalog**. The product appears in the storefront immediately and is saved as a new immutable version under `data/catalogs/umbrella/`; `active.json` selects that version. New listings start with zero reviews. This is a manual UI feature; the voice agent has no admin tool.
 
 Set `ADMIN_PASSWORD` in `.env` for local use and as a secret environment variable on the hosted service. If it is unset, the API refuses catalog writes. The admin password is sent only with the save request and is cleared from the form when the panel closes.
 
-The app writes to the server's local JSON file. On Render's free plan, filesystem changes are ephemeral and disappear when the service restarts or redeploys. Use a persistent disk or other durable catalog storage for lasting hosted listings; the checked-in `data/products.json` is not changed by hosted requests.
+The app writes versioned JSON files on the server. On Render's free plan, filesystem changes are ephemeral and disappear when the service restarts or redeploys. Use a persistent disk or other durable catalog storage for lasting hosted listings; the checked-in source `data/products.json` is not changed by hosted requests.
+
+## Use another product category
+
+The store serves one active catalog per deployment. The umbrella demo remains the default. A second deployment can set `ACTIVE_CATALOG=dry_fruits` and run the same server and frontend against the included dry fruit sample. The generalization affects catalog data, filters, details, comparison, tool definitions/results, and the voice greeting; the system prompt and AssemblyAI audio/WebSocket flow are shared.
+
+To prepare a new category, supply a JSON array of product objects or an object with a `products` array. Every record needs an ID, name, description, positive price, and HTTP(S) image URL (or a local `/img/` path). Source field names may differ. The one-time onboarding step maps source paths into normalized products and a validated manifest. It rejects missing required data, invalid paths, unknown field types/operators, incompatible units, and duplicate IDs. It does not generate application code or invent values.
+
+```bash
+# One-time hosted LLM preprocessing: set OPENAI_API_KEY and CATALOG_LLM_MODEL in .env
+python -m backend.services.catalog_onboarding path/to/items.json --category my_category
+
+# Reproduce the two checked-in categories without an LLM call
+python -m backend.services.catalog_onboarding data/products.json --category umbrella --manifest-template data/umbrella_manifest.template.json
+python -m backend.services.catalog_onboarding data/dry_fruits.sample.json --category dry_fruits --manifest-template data/dry_fruits_manifest.template.json
+
+# Start either deployment
+ACTIVE_CATALOG=dry_fruits uvicorn backend.main:app --port 8000
+# PowerShell: $env:ACTIVE_CATALOG='dry_fruits'; uvicorn backend.main:app --port 8000
+```
+
+The command publishes `data/catalogs/<category>/<version>/manifest.json` and `products.json`, then moves that category's `active.json` pointer. Repeating unchanged input gives the same version; older versions stay readable for active browser sessions. Use `--no-activate` to validate and publish without switching the live catalog. `CATALOG_ROOT` can point to another bundle directory for an isolated deployment.
+
+The manifest declares field paths, typed attributes, units and conversion factors, search fields, filters, comparison order, display labels, variants, and example questions. Comparison directions are `higher`, `lower`, or `none`, with a rationale and confidence. Below `COMPARISON_CONFIDENCE_CUTOFF` (default `0.30`), the row remains visible but no winner is highlighted. This threshold is a policy setting, not a calibrated probability. The same backend comparison matrix is rendered on screen and returned to the voice tool.
+
+The catalog editor uses the active category's attributes for new listings. It remains a password-protected manual UI, outside the voice agent. Checkout and order confirmation are simulations: the app does not take payment, reserve stock, or send orders to a fulfillment system.
 
 ## Run locally
 
@@ -74,15 +99,16 @@ Open http://localhost:8000. Localhost counts as a secure context, so the microph
 ## Tests
 
 ```bash
-node scripts/test_agent_tools.js   # tools against the real catalog: spoken search wording, positions, compare, cart, checkout
+node scripts/test_agent_tools.js   # all eight tools against umbrella and dry-fruit catalogs
 node scripts/test_mentions.js      # product mentions in the agent's speech that time the card highlights
-ruff check backend                 # lint
+python -m pytest -q tests/test_catalog.py  # schema, onboarding, versioning, admin API, prompt invariance
+ruff check backend tests            # lint
 python -m scripts.voice_latency latency --trials 4 --silence 1000:2000   # live latency, needs the API key
 ```
 
 ## How the voice pipeline handles interruptions and playback
 
-The browser talks to AssemblyAI's Voice Agent API directly over a WebSocket. Our server only mints a single-use token, so the API key never reaches the browser. Mic audio goes up as 24 kHz PCM16, and the agent's reply comes back as 24 kHz PCM16 chunks that we schedule with the Web Audio API. Getting this to feel like a real conversation took the work below.
+The browser talks to AssemblyAI's Voice Agent API directly over a WebSocket. For the voice connection, our server mints a single-use token, so the API key never reaches the browser. Mic audio goes up as 24 kHz PCM16, and the agent's reply comes back as 24 kHz PCM16 chunks that we schedule with the Web Audio API. Getting this to feel like a real conversation took the work below.
 
 ### 1. Smooth playback: a continuous playback worklet
 Reply audio arrives as ~10 ms chunks, in bursts, and at times slower than real time (we measured 0.8×). Our first version scheduled one Web Audio source node per chunk, about 100 a second. Every late chunk left the schedule empty for a moment, so one slow stretch turned into many micro-gaps, which is stutter.
@@ -153,7 +179,7 @@ Tools run in the browser and update the page, for example filtering the product 
 - The pre-buffer column shows how uneven delivery is: usually under 0.5 s, but some replies stall for several seconds mid-stream. No fixed buffer hides that without making every reply slow (section 1).
 
 #### Tuning pass (27 Sep 2026): three ideas, none kept
-The script now answers tool calls with the page's own `agent_tools.js` (run in Node by `scripts/agent_tools_host.js`). It sends all 7 tool definitions and the exact results the page would send. Each variant was measured over 6 runs at 1000 / 2000, one change at a time. Medians of first agent audio after the user stops talking:
+The script now answers tool calls with the page's own `agent_tools.js` (run in Node by `scripts/agent_tools_host.js`). It sends the eight tool definitions and runs the page's tool handlers with a local store stub. The figures below are historical measurements from the umbrella prototype; they are not a latency measurement of every onboarded category. Each variant was measured over 6 runs at 1000 / 2000, one change at a time. Medians of first agent audio after the user stops talking:
 
 | Variant | "How are you?" | Product search | Search tool result | Kept |
 |---|---|---|---|---|

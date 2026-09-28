@@ -1,6 +1,6 @@
 # VoiceCart AI architecture
 
-The browser talks to AssemblyAI's Voice Agent API directly over a WebSocket. AssemblyAI runs speech-to-text, turn detection, the LLM and text-to-speech. Our FastAPI server does three things only: it mints a single-use token (`GET /api/token`), serves the product catalog, and serves the static site. The AssemblyAI API key never leaves the server.
+The browser talks to AssemblyAI's Voice Agent API directly over a WebSocket. AssemblyAI runs speech-to-text, turn detection, the LLM and text-to-speech. Our FastAPI server mints a single-use token (`GET /api/token`), serves the active versioned catalog and comparison matrix, accepts password-protected manual listings, and serves the static site. The AssemblyAI API key never leaves the server.
 
 ```mermaid
 sequenceDiagram
@@ -9,6 +9,7 @@ sequenceDiagram
     participant S as FastAPI server
     participant A as AssemblyAI Voice Agent API
 
+    B->>S: GET /api/catalog (manifest and products)
     U->>B: click the mic
     B->>S: GET /api/token
     S->>A: GET /v1/token (API key, server side)
@@ -23,17 +24,23 @@ sequenceDiagram
     A-->>B: transcript.user, reply.started, reply.audio, transcript.agent
     A-->>B: tool.call (name, arguments, call_id)
     B->>B: run the tool: filter the grid, open a panel, update the cart
+    opt comparison tool
+        B->>S: POST /api/products/compare (catalog version)
+        S-->>B: typed comparison matrix
+    end
     B->>A: tool.result (JSON string), sent after reply.done
     A-->>B: reply.audio (the spoken answer)
-    B->>S: GET /api/products, POST /api/products/compare
 ```
 
 ## Files
 
 | File | Role |
 |---|---|
-| `backend/main.py` | `GET /api/token`, `GET /api/products`, `GET /api/products/{id}`, `POST /api/products/compare`, static files |
-| `backend/services/product_service.py` | Loads `data/products.json` (15 umbrellas) |
+| `backend/main.py` | Token, active catalog, product, comparison, manual admin endpoints, static files |
+| `backend/services/catalog.py` | Validates normalized products/manifests and publishes immutable catalog bundles |
+| `backend/services/catalog_onboarding.py` | One-time LLM or template preprocessing of source JSON |
+| `backend/services/product_service.py` | Loads the selected bundle, adds listings, and builds the shared comparison matrix |
+| `frontend/js/catalog_runtime.js` | Shared category search/filter helpers and formatting |
 | `frontend/js/voice_agent.js` | WebSocket session, system prompt, event handling, barge-in, acknowledgements, memory |
 | `frontend/js/agent_tools.js` | The 8 tool definitions and their handlers |
 | `frontend/js/app.js` | Store state: filters, compare set, cart, checkout |
@@ -41,14 +48,24 @@ sequenceDiagram
 | `frontend/js/mic_worklet.js` | Mic capture: resample to 24 kHz, PCM16, local speech detector |
 | `frontend/js/playback_worklet.js` | Agent audio: one continuous playback queue |
 
+## Catalog onboarding and versioning
+
+`data/products.json` remains the umbrella source fixture. The active, normalized deployment bundles live under `data/catalogs/<category>/<version>/`. Each has a `manifest.json` and `products.json`; `active.json` selects the version for that category. `ACTIVE_CATALOG` selects one category per storefront deployment (default `umbrella`). The browser loads manifest and products together from `GET /api/catalog` before opening the voice WebSocket. Its comparison requests include the loaded version, so a catalog update cannot change the screen's comparison data partway through the visit.
+
+Onboarding runs separately from customer requests: `python -m backend.services.catalog_onboarding <source.json> --category <slug>`. The hosted provider needs `OPENAI_API_KEY` and `CATALOG_LLM_MODEL`; `--provider command` uses a local adapter from `CATALOG_LLM_COMMAND`. The model sees a field inventory and bounded sample records and proposes structured mappings and category rules. Pydantic validation and deterministic normalization reject invalid output before publishing. The checked-in umbrella and dry-fruit manifest templates reproduce the demo bundles without an API call.
+
+Each product has stable identity, price/currency, description, image, typed attributes, and optional reviews and variants. Attribute rules define units, filter operators, display labels, comparison order/direction/confidence, and a rationale. Unit conversion occurs during normalization. A comparison row with confidence below `COMPARISON_CONFIDENCE_CUTOFF` remains visible without a highlighted winner. The backend builds one typed matrix used by both the screen and `compare_products`.
+
+The admin form uses the active manifest to accept new category attributes. Every save publishes a new bundle; the editor has no voice tool. Checkout remains an in-browser simulation with fixed 8% tax and no payment or fulfillment integration.
+
 ## Session setup
 
 On socket open the page sends one `session.update`:
 
-- `system_prompt`: voice rules (no markdown, answers as long as the question needs, round prices), grounding (only state what a tool returned), and how to use each tool.
+- `system_prompt`: one fixed category-neutral instruction for the eight tool workflows and grounding. Product facts appear only in tool definitions/results.
 - `greeting`: a first-visit greeting, or "Welcome back" when the visit already has history.
-- `tools`: the 8 client-side tools below, built from the loaded catalog so brand and product id enums match it.
-- `input.keyterms`: "VoiceCart" and every brand name, so speech recognition spells "TUMELLA" or "SIEPASA" the way the catalog does.
+- `tools`: the same 8 client-side operations below, with category attributes and valid filters generated from the loaded manifest.
+- `input.keyterms`: store/category and brand names from the active catalog.
 - `input.turn_detection`: `vad_threshold 0.5`, `min_silence 1000`, `max_silence 2000`, `interrupt_response true`. Measured with `scripts/voice_latency.py`: lowering `max_silence` from 4000 to 2000 cut time to first audio by about 2.5 s, and lower values made reply audio arrive with long gaps.
 
 ## Client-side tools
@@ -68,7 +85,7 @@ Tools run in the browser because each one changes the page. Handlers return comp
 
 Positions: "the second one" is resolved in the browser against the latest search as numbered on screen, not left to the model's memory of older results.
 
-Search handles spoken wording: filler words ("something for my") are dropped, spec words become filters ("windproof" means at least 50 mph, "light" at most 14 oz, "auto open" means automatic open), a color word becomes the color filter, and a word no umbrella has is left out and reported as `ignored_words` so the agent can say the store has nothing like it.
+Search handles spoken wording with generic filler removal and manifest search aliases. A category can map a phrase to a typed filter. The umbrella manifest preserves its wind/weight/color aliases; the dry-fruit manifest exposes origin, pack weight, protein, and roasting. Unknown words are reported as `ignored_words` so the agent can explain the limitation.
 
 ## Tool-result queue
 
