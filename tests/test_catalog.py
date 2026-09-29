@@ -169,39 +169,45 @@ def test_umbrella_admin_keeps_existing_request_shape(tmp_path, monkeypatch):
 def test_llm_provider_is_onboarding_only_and_output_is_validated(tmp_path, monkeypatch):
     fruits, _ = fixture("dry_fruits")
     template = json.loads((ROOT / "data/dry_fruits_manifest.template.json").read_text(encoding="utf-8"))
-    monkeypatch.setenv("OPENAI_API_KEY", "test-only")
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
     monkeypatch.setenv("CATALOG_LLM_MODEL", "test-model")
 
-    def fake_api(request):
+    def fake_gateway(request):
+        assert request.url.host == "llm-gateway.assemblyai.com"
         assert request.url.path == "/v1/chat/completions"
+        assert request.headers["authorization"] == "test-only"
         sent = json.loads(request.content)
-        assert sent["response_format"]["type"] == "json_object"
+        assert "response_format" not in sent
         assert sent["model"] == "test-model"
+        assert sent["messages"][0]["role"] == "system"
         return httpx.Response(200, json={"choices": [{"finish_reason": "stop",
-            "message": {"content": json.dumps(template)}}]})
+            "message": {"content": "```json\n" + json.dumps(template) + "\n```"}}]})
 
-    with httpx.Client(transport=httpx.MockTransport(fake_api)) as client:
+    with httpx.Client(transport=httpx.MockTransport(fake_gateway)) as client:
         proposal = propose_manifest(fruits, "dry_fruits", client=client)
         assert proposal["category_slug"] == "dry_fruits"
         version = onboard(ROOT / "data/dry_fruits.sample.json", "dry_fruits",
                           output_root=tmp_path, client=client)
     bundle = load_catalog("dry_fruits", version, base=tmp_path)
-    assert bundle["manifest"]["preprocessing"]["provider"] == "openai"
+    assert bundle["manifest"]["preprocessing"] == {
+        "provider": "assemblyai", "model": "test-model", "prompt_version": "catalog-manifest-v1",
+        "validation": "passed", "rejected_fields": "",
+    }
     assert bundle["manifest"]["source_sha256"] == hashlib.sha256(
         (ROOT / "data/dry_fruits.sample.json").read_bytes()).hexdigest()
 
 
 def test_rejected_llm_output_cannot_publish(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test-only")
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
     monkeypatch.setenv("CATALOG_LLM_MODEL", "test-model")
     bad_manifest = json.loads((ROOT / "data/dry_fruits_manifest.template.json").read_text(encoding="utf-8"))
     bad_manifest["attributes"][0]["filters"][0]["operator"] = "execute_python"
 
-    def fake_api(_request):
+    def fake_gateway(_request):
         return httpx.Response(200, json={"choices": [{"finish_reason": "stop",
             "message": {"content": json.dumps(bad_manifest)}}]})
 
-    with httpx.Client(transport=httpx.MockTransport(fake_api)) as client, pytest.raises(ValidationError):
+    with httpx.Client(transport=httpx.MockTransport(fake_gateway)) as client, pytest.raises(ValidationError):
         onboard(ROOT / "data/dry_fruits.sample.json", "dry_fruits",
                 output_root=tmp_path, client=client)
     assert not (tmp_path / "dry_fruits" / "active.json").exists()
@@ -214,3 +220,21 @@ def test_system_prompt_is_fixed_and_contains_no_category_facts():
     for category_word in ("umbrella", "dry fruit", "windproof", "TUMELLA", "VoiceCart"):
         assert category_word.lower() not in prompt.lower()
     assert "search_products" in prompt and "compare_products" in prompt
+
+
+def test_gateway_model_defaults_and_truncated_reply_is_rejected(monkeypatch):
+    fruits, _ = fixture("dry_fruits")
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
+    monkeypatch.delenv("CATALOG_LLM_MODEL", raising=False)
+
+    def fake_gateway(request):
+        assert json.loads(request.content)["model"] == "qwen3.5-4b-32k-fast"
+        return httpx.Response(200, json={"choices": [{"finish_reason": "length",
+            "message": {"content": "{"}}]})
+
+    with httpx.Client(transport=httpx.MockTransport(fake_gateway)) as client, \
+            pytest.raises(RuntimeError, match="length"):
+        propose_manifest(fruits, "dry_fruits", client=client)
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "")
+    with pytest.raises(ValueError, match="ASSEMBLYAI_API_KEY"):
+        propose_manifest(fruits, "dry_fruits")
