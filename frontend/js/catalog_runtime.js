@@ -1,4 +1,4 @@
-﻿/* Shared catalog formatting and filtering. Manifest values are data, never executable code. */
+/* Shared catalog formatting and filtering. Manifest values are data, never executable code. */
 const CatalogRuntime = (() => {
     const money = (amount, currency = 'USD') => new Intl.NumberFormat('en-US', {
         style: 'currency', currency, maximumFractionDigits: 2, minimumFractionDigits: 2,

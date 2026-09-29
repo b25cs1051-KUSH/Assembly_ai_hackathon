@@ -1,9 +1,9 @@
-﻿/* =================================================================
-   App â€” state management, API calls, event wiring for VoiceCart AI
+/* =================================================================
+   App — state management, API calls, event wiring for VoiceCart AI
    ================================================================= */
 
 const App = (() => {
-    /* â”€â”€ STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── STATE ──────────────────────────────────────────────────── */
     const state = {
         products: [],
         manifest: null,
@@ -17,7 +17,7 @@ const App = (() => {
         priceCeiling: 100,   // slider max, derived from the catalog
     };
 
-    /* â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── HELPERS ────────────────────────────────────────────────── */
     function defaultFilters() {
         return {
             brand: 'all',
@@ -26,7 +26,7 @@ const App = (() => {
             minWind: 0,
             minRating: 0,
             maxWeight: Infinity,
-            autoOpen: false,     // true â†’ only automatic-open umbrellas
+            autoOpen: false,     // true → only automatic-open umbrellas
             search: '',
             attributeFilters: {},
             sortBy: 'relevance',
@@ -56,7 +56,7 @@ const App = (() => {
 
     const colorFamilies = () => [...new Set(state.products.map(p => p.color_family).filter(Boolean))].sort();
 
-    /* â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── API ────────────────────────────────────────────────────── */
     let readyPromise;
     async function fetchProducts() {
         const res = await fetch('/api/catalog');
@@ -83,9 +83,9 @@ const App = (() => {
         $('#empty-state p').textContent = 'No ' + label.toLowerCase() + ' match your filters.';
         const questions = state.manifest.guide_questions || [];
         if (questions.length) {
-            $('.hero-accent').textContent = 'â€œ' + questions[0] + 'â€';
+            $('.hero-accent').textContent = '“' + questions[0] + '”';
             document.querySelectorAll('#agent-hints .hint-chip').forEach((chip, i) => {
-                chip.textContent = 'â€œ' + (questions[i] || questions[0]) + 'â€';
+                chip.textContent = '“' + (questions[i] || questions[0]) + '”';
             });
         }
         const labels = state.manifest.attributes.map(a => a.label).slice(0, 4)
@@ -183,7 +183,7 @@ const App = (() => {
         return res.json();
     }
 
-    /* â”€â”€ FILTERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── FILTERS ────────────────────────────────────────────────── */
     function applyFilters() {
         const f = state.filters;
         if (!state.manifest) return;
@@ -248,7 +248,7 @@ const App = (() => {
         return state.filtered;
     }
 
-    /* â”€â”€ COMPARE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── COMPARE ────────────────────────────────────────────────── */
     function toggleCompare(id) {
         if (state.compareSet.has(id)) {
             state.compareSet.delete(id);
@@ -287,7 +287,7 @@ const App = (() => {
         return Promise.resolve();
     }
 
-    /* â”€â”€ DETAIL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── DETAIL ─────────────────────────────────────────────────── */
     function openDetail(id) {
         const p = productById(id);
         if (!p) return;
@@ -296,7 +296,7 @@ const App = (() => {
         UI.openPanel('detail-overlay', 'detail-drawer');
     }
 
-    /* â”€â”€ CART â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── CART ────────────────────────────────────────────────────── */
     function addToCart(id, qty = 1) {
         const existing = state.cart.find(i => i.id === id);
         if (existing) {
@@ -307,7 +307,7 @@ const App = (() => {
         syncCart();
         UI.bumpBadge('cart-badge');
         const p = productById(id);
-        UI.toast(`${qty > 1 ? `${qty} Ã— ` : ''}${p ? p.name : 'Item'} added to cart`);
+        UI.toast(`${qty > 1 ? `${qty} × ` : ''}${p ? p.name : 'Item'} added to cart`);
     }
 
     function removeFromCart(id) {
@@ -352,7 +352,7 @@ const App = (() => {
         UI.openPanel('cart-overlay', 'cart-drawer');
     }
 
-    /* â”€â”€ CHECKOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── CHECKOUT ───────────────────────────────────────────────── */
     // True from the moment checkout is requested: the modal itself opens 300 ms later, after the cart slides away.
     let checkoutOpening = false;
     let checkoutTimer;
@@ -404,7 +404,7 @@ const App = (() => {
         return { view: 'grid' };
     }
 
-    /* â”€â”€ EVENT WIRING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── EVENT WIRING ───────────────────────────────────────────── */
     function bind() {
         /* Filters */
         $('#filter-brand').addEventListener('change', e => { state.filters.brand = e.target.value; applyFilters(); });
@@ -483,7 +483,7 @@ const App = (() => {
         if ($('#admin-modal').classList.contains('open')) Admin.close();
     }
 
-    /* â”€â”€ INIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── INIT ───────────────────────────────────────────────────── */
     async function init() {
         bind();
         readyPromise = fetchProducts();
@@ -492,7 +492,7 @@ const App = (() => {
 
     document.addEventListener('DOMContentLoaded', init);
 
-    /* â”€â”€ PUBLIC API (inline onclick handlers and agent tools) â”€â”€â”€â”€â”€â”€ */
+    /* ── PUBLIC API (inline onclick handlers and agent tools) ────── */
     return {
         showNewProduct,
         getProducts: () => state.products,

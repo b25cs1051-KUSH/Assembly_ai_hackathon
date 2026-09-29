@@ -1,4 +1,4 @@
-﻿"""Validated, versioned catalog bundles shared by the storefront and voice tools."""
+"""Validated, versioned catalog bundles shared by the storefront and voice tools."""
 
 from __future__ import annotations
 
