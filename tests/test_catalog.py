@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import httpx
@@ -17,7 +18,12 @@ from backend.services.catalog import (
     normalize_catalog,
     publish_catalog,
 )
-from backend.services.catalog_onboarding import approve, onboard, propose, propose_manifest
+from backend.services.catalog_onboarding import (
+    approve,
+    onboard,
+    propose,
+    propose_manifest,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FRUIT_SOURCE = ROOT / "tests/fixtures/dry_fruits.sample.json"
@@ -251,8 +257,8 @@ def test_unparseable_reply_and_bad_record_name_the_failure(tmp_path, monkeypatch
         result = propose(source, "dry_fruits", client=client,
                          proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
     assert result["status"] == "rejected"
-    assert result["errors"] == [f"product 1 (id {fruits[1]['sku']!r}): image_url: "
-                                "Value error, image_url must be HTTP(S) or a local /img/ path"]
+    assert result["errors"] == [(f"product 1 (id {fruits[1]['sku']!r}): image_url: "
+                                 "Value error, image_url must be HTTP(S) or a local /img/ path")]
 
 
 def test_approval_refuses_unknown_or_edited_proposals(tmp_path, monkeypatch):
@@ -292,9 +298,16 @@ def test_system_prompt_is_fixed_and_contains_no_category_facts():
     source = (ROOT / "frontend/js/voice_agent.js").read_text(encoding="utf-8")
     prompt = source.split("const SYSTEM_PROMPT = `", 1)[1].split("`;", 1)[0]
     assert "${" not in prompt
-    for category_word in ("umbrella", "dry fruit", "windproof", "TUMELLA", "VoiceCart"):
-        assert category_word.lower() not in prompt.lower()
+    category_words = ("umbrella", "wind", "windproof", "canopy", "rain", "almond", "almonds", "cashew",
+                      "nut", "nuts", "dry fruit", "pack weight", "protein", "TUMELLA", "VoiceCart")
+    for word in category_words:
+        assert not re.search(rf"\b{re.escape(word)}\b", prompt, re.IGNORECASE), word
     assert "search_products" in prompt and "compare_products" in prompt
+    for behaviour in ("Round prices", "apologise briefly and correct yourself", "exactly as long as the question needs",
+                      "Every position from 1 to total_matches is valid", "by position and brand",
+                      "which variants are available", "offer to relax one requirement",
+                      "means the second column", "opens checkout in one step", "start your answer with the answer"):
+        assert behaviour in prompt, behaviour
 
 
 def test_gateway_model_defaults_and_truncated_reply_is_rejected(monkeypatch):
