@@ -402,9 +402,14 @@ def test_review_hints_flag_valid_but_doubtful_choices():
     doubtful["variant_group_source"] = "id"
     doubtful["attributes"] = [a for a in doubtful["attributes"] if a["key"] != "automatic_open"]
     doubtful["attributes"][1]["confidence"] = 1
+    doubtful["attributes"][3]["filters"][0]["operator"] = "min"  # weight: lower is better
+    doubtful["search_aliases"].append({"phrase": "hurricane", "parameter": "min_wind_mph", "value": 500})
     hints = "\n".join(review_hints(doubtful, raw))
     assert "variant_group_source is the product id path" in hints
     assert "`specs.automatic_open` (15 of 15 records) is not mapped" in hints
     assert "confidence 1" in hints
+    assert "Filter `max_weight_oz` is a min limit on `weight_oz`, where lower is marked better" in hints
+    assert "Alias 'hurricane' sets min_wind_mph = 500, which matches 0 of 15 records" in hints
+    assert "Alias 'windproof'" not in hints
     assert "product id path" not in "\n".join(review_hints(reviewed, raw))
     assert "not mapped" not in "\n".join(review_hints(reviewed, raw))

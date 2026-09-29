@@ -293,6 +293,23 @@ def _cell(value: Any) -> str:
     return text.replace("|", "\\|").replace("\n", " ") or "-"
 
 
+def _filter_matches(value: Any, operator: str | None, wanted: Any) -> bool:
+    """Source-value check with the storefront's filter rules (catalog_runtime.js). Unit strings are skipped."""
+    if value is None:
+        return False
+    if operator in ("min", "max"):
+        try:
+            number, limit = float(value), float(wanted)
+        except (TypeError, ValueError):
+            return True  # values like "0.5 kg" are converted at normalization; don't guess here
+        return number >= limit if operator == "min" else number <= limit
+    if isinstance(value, bool):
+        return value == (wanted is True or str(wanted).lower() == "true")
+    if operator == "contains":
+        return str(wanted).lower() in str(value).lower()
+    return str(value).lower() == str(wanted).lower()
+
+
 def review_hints(manifest: dict, records: list[dict]) -> list[str]:
     """Deterministic flags for choices that are valid but often wrong."""
     field_map = manifest.get("field_map") if isinstance(manifest.get("field_map"), dict) else {}
@@ -317,6 +334,20 @@ def review_hints(manifest: dict, records: list[dict]) -> list[str]:
             hints.append(f"Numeric attribute `{a.get('key')}` has no filter, so shoppers cannot limit it by voice.")
         if a.get("direction") in ("higher", "lower") and a.get("confidence") == 1:
             hints.append(f"`{a.get('key')}`: direction `{a.get('direction')}` has confidence 1. Confirm the preference really holds for every shopper.")
+        for rule in [f for f in a.get("filters") or [] if isinstance(f, dict)]:
+            if (rule.get("operator"), a.get("direction")) in (("max", "higher"), ("min", "lower")):
+                hints.append(f"Filter `{rule.get('parameter')}` is a {rule.get('operator')} limit on `{a.get('key')}`, "
+                             f"where {a.get('direction')} is marked better. Confirm shoppers limit it that way.")
+    by_parameter = {rule.get("parameter"): (a, rule) for a in attributes
+                    for rule in a.get("filters") or [] if isinstance(rule, dict)}
+    for alias in [x for x in manifest.get("search_aliases") or [] if isinstance(x, dict)]:
+        attribute, rule = by_parameter.get(alias.get("parameter"), (None, None))
+        if attribute is None or not isinstance(attribute.get("source"), str):
+            continue
+        matched = sum(_filter_matches(get_path(r, attribute["source"]), rule.get("operator"), alias.get("value")) for r in records)
+        if not matched:
+            hints.append(f"Alias '{alias.get('phrase')}' sets {alias.get('parameter')} = {alias.get('value')!r}, "
+                         f"which matches 0 of {total} records.")
     if not manifest.get("search_aliases"):
         hints.append("No search aliases, so words like 'lightweight' map to no filter.")
     return hints
