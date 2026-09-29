@@ -4,15 +4,15 @@ Use these slide changes alongside the existing umbrella video. The video remains
 
 ## Product claim
 
-VoiceCart is a reusable voice shopping storefront for one merchant catalog per deployment. The merchant supplies a JSON catalog. A one-time preprocessing model proposes category field mappings and comparison rules. Validation produces a versioned catalog and manifest. The same eight shopping tools, storefront structure, and category-neutral AssemblyAI system prompt then run on that catalog.
+VoiceCart is a reusable voice shopping storefront for one merchant catalog per deployment. The merchant supplies a JSON catalog. A one-time model call through the AssemblyAI LLM Gateway proposes category field mappings and comparison rules. Validation checks the proposal, a person reviews its report and approves it, and only then is a versioned catalog and manifest published. The same eight shopping tools, storefront structure, and category-neutral AssemblyAI system prompt then run on that catalog.
 
 ## Suggested slide sequence
 
 1. **Problem and product:** shoppers ask natural questions; VoiceCart turns them into visible search, details, comparison, cart, and simulated checkout.
-2. **Reusable engine:** catalog JSON -> one-time LLM preprocessing -> validated manifest and normalized products -> shared storefront and eight tools -> AssemblyAI voice session. The LLM onboarding step is separate from live shopper requests.
-3. **Two-category proof:** umbrella demo (15 products) and dry-fruit sample (3 products). Show their different filters and comparison fields while keeping the same voice prompt and tool names.
+2. **Reusable engine:** catalog JSON -> one-time LLM Gateway proposal -> validation and review report -> approval -> versioned manifest and normalized products -> shared storefront and eight tools -> AssemblyAI voice session. The LLM onboarding step is separate from live shopper requests.
+3. **Onboarding evidence:** the real LLM Gateway run on the umbrella data (`docs/onboarding/`). It got all 16 core field mappings right, and validation rejected its category rules, so the approval gate blocked publication. Tests run a 3-product dry-fruit fixture through the same prompt and tool names.
 4. **Grounding and trust:** products come from the active catalog; comparisons use one backend matrix for screen and agent; weak comparison preferences remain visible without a highlighted winner. Invalid mappings/units are rejected before publication.
-5. **Business path:** new category onboarding needs a usable source catalog and validation review. Merchant branding, real payments, inventory, fulfillment, durable hosted storage, and multi-merchant routing are future integrations.
+5. **Business path:** new category onboarding needs accurate, structured source data and a review. Real payments, inventory sync, multiple stores per deployment, hosted catalog storage, and import from common e-commerce export formats are planned, not built.
 
 ## Judge demo path
 
@@ -22,9 +22,10 @@ The existing video and umbrella site show the full shopper journey. The umbrella
 
 - `frontend/js/voice_agent.js`: fixed category-neutral `SYSTEM_PROMPT`.
 - `frontend/js/agent_tools.js`: eight manifest-driven tool definitions and handlers.
-- `backend/services/catalog_onboarding.py`: one-time structured preprocessing.
+- `backend/services/catalog_onboarding.py`: one-time proposal, review report and approval gate.
+- `docs/onboarding/`: the real umbrella onboarding report and its comparison with the reviewed manifest.
 - `data/catalogs/umbrella/`: the versioned, validated umbrella bundle. `tests/fixtures/catalogs/dry_fruits/`: a second-category test bundle.
-- `tests/test_catalog.py` and `scripts/test_agent_tools.js`: two-category checks.
+- `tests/test_catalog.py` and `scripts/test_agent_tools.js`: validation, approval gate, prompt and two-category tool checks.
 
 ## Corrections to the existing starter deck
 
@@ -35,9 +36,9 @@ The untracked `docs/starter_presentation.pptx` is an earlier concept draft. Its 
 3. **Live voice path:** browser microphone sends 24 kHz PCM audio directly to AssemblyAI over its Voice Agent WebSocket. FastAPI issues a temporary token and serves catalog/compare APIs; it does not proxy audio.
 4. **Turn and playback handling:** AssemblyAI handles speech, the model, and reply audio. Browser worklets capture/play audio and pause output quickly for interruptions.
 5. **Agent actions:** AssemblyAI calls eight client-side shopping tools. The browser updates the screen and returns catalog-grounded results. There is no Python intent state machine.
-6. **Two-category proof:** 15 umbrella records and a 3-item dry-fruit fixture use the same prompt/tool names. Each category has its own validated attribute rules and filters.
-7. **Onboarding architecture:** source JSON, one-time LLM proposal, Pydantic validation, immutable manifest/product bundle, then shared storefront and voice tools. No Redis or vector search is implemented.
+6. **Second-category test:** 15 umbrella records and a 3-item dry-fruit test fixture use the same prompt/tool names. Each has its own validated attribute rules and filters. The umbrella store is the only presented store.
+7. **Onboarding architecture:** source JSON, one-time LLM Gateway proposal, Pydantic validation, review report, approval, immutable manifest/product bundle, then shared storefront and voice tools. No Redis or vector search is implemented.
 8. **Merchant path:** one active category per deployment; manual category-aware listing panel. Payments, inventory, fulfillment, durable hosted storage, and multi-merchant routing remain integration work.
-9. **Evidence and limitations:** cite the two-category tests and the existing umbrella video. Do not claim sub-300 ms voice replies, 60% faster discovery, millions of SKUs, or thousands of simultaneous sessions; the repository has no supporting measurements for those claims.
+9. **Evidence and limitations:** cite the onboarding report, the tests and the existing umbrella video. Do not claim sub-300 ms voice replies, 60% faster discovery, millions of SKUs, or thousands of simultaneous sessions; the repository has no supporting measurements for those claims.
 
 The starter deck currently mentions 16 kHz audio, a backend WebSocket proxy, Redis, 22 umbrella products, and unmeasured performance/business percentages. Those are inconsistent with the checked-in implementation and should not appear in the submission.

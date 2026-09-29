@@ -10,11 +10,22 @@
 
 Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
 
+## VoiceCart for any store: next step (branch feat/admin-catalog)
+
+This branch is our next step: onboarding any store's product data. We plan to continue it after the hackathon results. A store with good, structured product data can run the same storefront, eight voice tools and AssemblyAI voice session on its own catalog. The AssemblyAI LLM Gateway proposes the catalog configuration once, and a person reviews and approves it before anything goes live. The umbrella store is still the only presented store, and our first real gateway run on its data was rejected by validation, as [docs/onboarding/umbrella-llm-vs-reviewed.md](docs/onboarding/umbrella-llm-vs-reviewed.md) explains.
+
+1. **Prepare** the product JSON.
+2. **Run onboarding.** The LLM Gateway proposes field mappings, attribute types, units and comparison rules.
+3. **Review** the generated report and approve the proposal.
+4. **Publish.** The storefront and voice tools run on the approved catalog.
+
+How to do it, and what is built and what is planned: [docs/INTEGRATION.md](docs/INTEGRATION.md).
+
 ## Why it matters
 
 - **Stores have search boxes, not salespeople.** A question you would ask a shop assistant in one sentence becomes a dozen taps. About 70% of online carts are abandoned ([Baymard Institute](https://baymard.com/lists/cart-abandonment-rate), average of 50 studies).
 - **Screens shut people out.** At least 2.2 billion people have a vision impairment ([WHO](https://www.who.int/news-room/fact-sheets/detail/blindness-and-visual-impairment)). With VoiceCart, shopping works without touching the screen.
-- **It fits different catalogs.** Store owners can onboard a JSON product catalog once, then use the same storefront, eight shopping tools, and category-neutral voice prompt.
+- **It fits different catalogs.** A store can onboard its JSON product catalog once, review and approve the result, then use the same storefront, eight shopping tools, and category-neutral voice prompt.
 
 ## Try saying
 
@@ -98,7 +109,7 @@ Open http://localhost:8000. Localhost counts as a secure context, so the microph
 ```bash
 node scripts/test_agent_tools.js   # all eight tools against the umbrella catalog and the dry-fruit test fixture
 node scripts/test_mentions.js      # product mentions in the agent's speech that time the card highlights
-python -m pytest -q tests/test_catalog.py  # schema, onboarding, versioning, admin API, prompt invariance
+python -m pytest -q tests  # schema, onboarding and approval gate, versioning, admin API, prompt invariance
 ruff check backend tests            # lint
 python -m scripts.voice_latency latency --trials 4 --silence 1000:2000   # live latency, needs the API key
 ```
