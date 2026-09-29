@@ -17,9 +17,11 @@ from backend.services.catalog import (
     normalize_catalog,
     publish_catalog,
 )
-from backend.services.catalog_onboarding import onboard, propose_manifest
+from backend.services.catalog_onboarding import approve, onboard, propose, propose_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
+FRUIT_SOURCE = ROOT / "data/dry_fruits.sample.json"
+FRUIT_TEMPLATE = ROOT / "data/dry_fruits_manifest.template.json"
 
 
 def fixture(category):
@@ -186,31 +188,104 @@ def test_llm_provider_is_onboarding_only_and_output_is_validated(tmp_path, monke
     with httpx.Client(transport=httpx.MockTransport(fake_gateway)) as client:
         proposal = propose_manifest(fruits, "dry_fruits", client=client)
         assert proposal["category_slug"] == "dry_fruits"
-        version = onboard(ROOT / "data/dry_fruits.sample.json", "dry_fruits",
-                          output_root=tmp_path, client=client)
-    bundle = load_catalog("dry_fruits", version, base=tmp_path)
-    assert bundle["manifest"]["preprocessing"] == {
+        result = propose(FRUIT_SOURCE, "dry_fruits", client=client,
+                         proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
+    assert result["status"] == "pending_review"
+    assert result["product_count"] == 3
+    # Proposing never writes the live catalog.
+    assert not (tmp_path / "catalogs").exists()
+    folder = tmp_path / "proposals" / result["proposal_id"]
+    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["preprocessing"] == {
         "provider": "assemblyai", "model": "test-model", "prompt_version": "catalog-manifest-v1",
         "validation": "passed", "rejected_fields": "",
     }
-    assert bundle["manifest"]["source_sha256"] == hashlib.sha256(
-        (ROOT / "data/dry_fruits.sample.json").read_bytes()).hexdigest()
+    assert manifest["source_sha256"] == hashlib.sha256(FRUIT_SOURCE.read_bytes()).hexdigest()
+    report = (tmp_path / "docs" / "dry_fruits-review.md").read_text(encoding="utf-8")
+    assert "pending_review" in report and "Products that would be published: 3" in report
+    assert "| pack_weight_g |" in report and "--approve " + result["proposal_id"] in report
+
+    version = approve(result["proposal_id"], proposals_root=tmp_path / "proposals",
+                      output_root=tmp_path / "catalogs")
+    bundle = load_catalog("dry_fruits", base=tmp_path / "catalogs")
+    assert bundle["version"] == version
+    assert bundle["manifest"]["preprocessing"]["provider"] == "assemblyai"
+    meta = json.loads((folder / "proposal.json").read_text(encoding="utf-8"))
+    assert meta["status"] == "approved" and meta["catalog_version"] == version
 
 
-def test_rejected_llm_output_cannot_publish(tmp_path, monkeypatch):
+def gateway_client(content):
+    return httpx.Client(transport=httpx.MockTransport(lambda _request: httpx.Response(
+        200, json={"choices": [{"finish_reason": "stop", "message": {"content": content}}]})))
+
+
+def test_rejected_llm_output_is_reported_and_cannot_be_approved(tmp_path, monkeypatch):
     monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
-    monkeypatch.setenv("CATALOG_LLM_MODEL", "test-model")
-    bad_manifest = json.loads((ROOT / "data/dry_fruits_manifest.template.json").read_text(encoding="utf-8"))
+    bad_manifest = json.loads(FRUIT_TEMPLATE.read_text(encoding="utf-8"))
     bad_manifest["attributes"][0]["filters"][0]["operator"] = "execute_python"
+    with gateway_client(json.dumps(bad_manifest)) as client:
+        result = propose(FRUIT_SOURCE, "dry_fruits", client=client,
+                         proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
+    assert result["status"] == "rejected"
+    assert result["product_count"] == 0
+    assert any(error.startswith("attributes.0.filters.0.operator:") for error in result["errors"])
+    report = (tmp_path / "docs" / "dry_fruits-review.md").read_text(encoding="utf-8")
+    assert "attributes.0.filters.0.operator" in report and "cannot be published" in report
+    with pytest.raises(ValueError, match=r"attributes\.0\.filters\.0\.operator"):
+        approve(result["proposal_id"], proposals_root=tmp_path / "proposals", output_root=tmp_path / "catalogs")
+    assert not (tmp_path / "catalogs").exists()
 
-    def fake_gateway(_request):
-        return httpx.Response(200, json={"choices": [{"finish_reason": "stop",
-            "message": {"content": json.dumps(bad_manifest)}}]})
 
-    with httpx.Client(transport=httpx.MockTransport(fake_gateway)) as client, pytest.raises(ValidationError):
-        onboard(ROOT / "data/dry_fruits.sample.json", "dry_fruits",
-                output_root=tmp_path, client=client)
-    assert not (tmp_path / "dry_fruits" / "active.json").exists()
+def test_unparseable_reply_and_bad_record_name_the_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
+    with gateway_client("Here is your manifest!") as client:
+        result = propose(FRUIT_SOURCE, "dry_fruits", client=client,
+                         proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
+    assert result["status"] == "rejected" and result["errors"][0].startswith("LLM reply:")
+
+    fruits = json.loads(FRUIT_SOURCE.read_text(encoding="utf-8"))
+    fruits[1]["photo_url"] = "javascript:alert(1)"
+    source = tmp_path / "fruits.json"
+    source.write_text(json.dumps(fruits), encoding="utf-8")
+    with gateway_client(FRUIT_TEMPLATE.read_text(encoding="utf-8")) as client:
+        result = propose(source, "dry_fruits", client=client,
+                         proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
+    assert result["status"] == "rejected"
+    assert result["errors"] == [f"product 1 (id {fruits[1]['sku']!r}): image_url: "
+                                "Value error, image_url must be HTTP(S) or a local /img/ path"]
+
+
+def test_approval_refuses_unknown_or_edited_proposals(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
+    with gateway_client(FRUIT_TEMPLATE.read_text(encoding="utf-8")) as client:
+        result = propose(FRUIT_SOURCE, "dry_fruits", client=client,
+                         proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
+    roots = {"proposals_root": tmp_path / "proposals", "output_root": tmp_path / "catalogs"}
+    with pytest.raises(ValueError, match="16 lowercase hex"):
+        approve("../../etc", **roots)
+    with pytest.raises(FileNotFoundError):
+        approve("0" * 16, **roots)
+    products = tmp_path / "proposals" / result["proposal_id"] / "products.json"
+    edited = json.loads(products.read_text(encoding="utf-8"))
+    edited[0]["price"] = 0.01
+    products.write_text(json.dumps(edited), encoding="utf-8")
+    with pytest.raises(ValueError, match="changed after it was proposed"):
+        approve(result["proposal_id"], **roots)
+    assert not (tmp_path / "catalogs").exists()
+
+
+def test_manual_manifest_template_still_publishes_directly(tmp_path):
+    version = onboard(FRUIT_SOURCE, "dry_fruits", manifest_template=FRUIT_TEMPLATE, output_root=tmp_path)
+    bundle = load_catalog("dry_fruits", base=tmp_path)
+    assert bundle["version"] == version
+    assert bundle["manifest"]["preprocessing"]["provider"] == "template"
+    bad = json.loads(FRUIT_TEMPLATE.read_text(encoding="utf-8"))
+    bad["attributes"][0]["filters"][0]["operator"] = "execute_python"
+    bad_path = tmp_path / "bad.json"
+    bad_path.write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(ValidationError):
+        onboard(FRUIT_SOURCE, "dry_fruits", manifest_template=bad_path, output_root=tmp_path / "other")
+    assert not (tmp_path / "other").exists()
 
 
 def test_system_prompt_is_fixed_and_contains_no_category_facts():

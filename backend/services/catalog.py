@@ -13,7 +13,14 @@ from threading import Lock
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 CATALOG_DIR = ROOT / "data" / "catalogs"
@@ -294,7 +301,11 @@ def normalize_catalog(raw: list[dict] | dict, manifest: CatalogManifest) -> list
         fields["variant_group"] = get_path(record, manifest.variant_group_source) if manifest.variant_group_source else None
         fields["variant_value"] = get_path(record, manifest.variant_value_source) if manifest.variant_value_source else None
         fields["source_ref"] = index
-        product = Product.model_validate(fields)
+        try:
+            product = Product.model_validate(fields)
+        except ValidationError as error:
+            detail = "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in error.errors())
+            raise ValueError(f"product {index} (id {fields.get('id')!r}): {detail}") from None
         if product.id in ids:
             raise ValueError(f"duplicate product ID {product.id!r}")
         ids.add(product.id)
