@@ -10,6 +10,16 @@
 
 Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
 
+## Next step: any store's catalog (branch `feat/admin-catalog`)
+
+The live site and the video run this `main` branch. The [`feat/admin-catalog`](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/tree/feat/admin-catalog) branch is our next step: onboarding any store's product data. We plan to continue it after the hackathon results. It adds:
+
+- **Onboarding with the AssemblyAI LLM Gateway.** Once per catalog, before any shopper talks, the model proposes field mappings, attribute types and units, filters, and which values win a comparison. A reply that fails validation goes back to the model with its errors.
+- **Review before publishing.** Each proposal gets a review report, and only `--approve <proposal-id>` makes it live.
+- **One storefront, prompt and set of eight tools for any catalog.** Filters, comparison rows and tool definitions come from the catalog's manifest.
+
+On our umbrella data, the first prompt version was rejected. The second passed validation and matched the reviewed manifest on all 16 core fields and all 5 comparison directions ([comparison](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/onboarding/umbrella-llm-vs-reviewed.md)). A live voice session with synthesized shopper speech ran all eight tools on a second, dry-fruit test catalog ([transcript](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/onboarding/dry-fruit-voice-journey.md)). How a store onboards: [INTEGRATION.md](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/INTEGRATION.md).
+
 ## Why it matters
 
 - **Stores have search boxes, not salespeople.** A question you would ask a shop assistant in one sentence becomes a dozen taps. About 70% of online carts are abandoned ([Baymard Institute](https://baymard.com/lists/cart-abandonment-rate), average of 50 studies).
