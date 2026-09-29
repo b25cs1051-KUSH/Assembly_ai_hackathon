@@ -5,9 +5,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
-function load(category) {
-    const active = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/catalogs', category, 'active.json')));
-    const folder = path.join(ROOT, 'data/catalogs', category, active.version);
+function load(category, base = 'data/catalogs') {
+    const active = JSON.parse(fs.readFileSync(path.join(ROOT, base, category, 'active.json')));
+    const folder = path.join(ROOT, base, category, active.version);
     const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'manifest.json')));
     const products = JSON.parse(fs.readFileSync(path.join(folder, 'products.json')));
     let visible = products;
@@ -68,7 +68,7 @@ function load(category) {
 
 (async () => {
     const umbrellas = load('umbrella');
-    const dry = load('dry_fruits');
+    const dry = load('dry_fruits', 'tests/fixtures/catalogs');
     const names = defs => Array.from(defs, item => item.name);
     const expected = ['search_products', 'show_product', 'compare_products', 'update_compare',
         'update_cart', 'show_cart', 'checkout', 'place_order'];
@@ -112,5 +112,5 @@ function load(category) {
     assert.ok(checkout.total > 0);
     await assert.rejects(dry.tools.run('place_order', { user_confirmed: false }));
     assert.equal((await dry.tools.run('place_order', { user_confirmed: true })).order_number, 'VC-TEST');
-    console.log('PASS: eight tools, umbrella search/variants, dry-fruit filters, shared comparison, cart and checkout');
+    console.log('PASS: eight tools, umbrella search/variants, dry-fruit fixture filters, shared comparison, cart and checkout');
 })().catch(error => { console.error(error); process.exitCode = 1; });

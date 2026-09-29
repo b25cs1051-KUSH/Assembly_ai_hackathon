@@ -16,14 +16,14 @@ VoiceCart is a reusable voice shopping storefront for one merchant catalog per d
 
 ## Judge demo path
 
-The existing video and umbrella site show the polished original journey. For a live generalization proof, run the same code with `ACTIVE_CATALOG=dry_fruits`; search almonds under 20 dollars, compare the first two, inspect pack weight/origin/protein, add one to cart, and show checkout. Call checkout an in-browser simulation. The admin plus icon adds manual listings to the active category; it is outside the voice tool set.
+The existing video and umbrella site show the full shopper journey. The umbrella catalog is the only presented store. Show onboarding as a pipeline instead: the committed LLM proposal and review report in `docs/onboarding/`, the approval gate, and the tests that run a second category through the same tools. Call checkout an in-browser simulation. The admin plus icon adds manual listings to the active category; it is outside the voice tool set.
 
 ## Evidence in the repository
 
 - `frontend/js/voice_agent.js`: fixed category-neutral `SYSTEM_PROMPT`.
 - `frontend/js/agent_tools.js`: eight manifest-driven tool definitions and handlers.
 - `backend/services/catalog_onboarding.py`: one-time structured preprocessing.
-- `data/catalogs/umbrella/` and `data/catalogs/dry_fruits/`: versioned validated bundles.
+- `data/catalogs/umbrella/`: the versioned, validated umbrella bundle. `tests/fixtures/catalogs/dry_fruits/`: a second-category test bundle.
 - `tests/test_catalog.py` and `scripts/test_agent_tools.js`: two-category checks.
 
 ## Corrections to the existing starter deck

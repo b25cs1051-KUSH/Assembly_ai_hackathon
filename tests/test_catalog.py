@@ -20,8 +20,8 @@ from backend.services.catalog import (
 from backend.services.catalog_onboarding import approve, onboard, propose, propose_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
-FRUIT_SOURCE = ROOT / "data/dry_fruits.sample.json"
-FRUIT_TEMPLATE = ROOT / "data/dry_fruits_manifest.template.json"
+FRUIT_SOURCE = ROOT / "tests/fixtures/dry_fruits.sample.json"
+FRUIT_TEMPLATE = ROOT / "tests/fixtures/dry_fruits_manifest.template.json"
 
 
 def fixture(category):
@@ -29,8 +29,8 @@ def fixture(category):
         source = ROOT / "data/products.json"
         template = ROOT / "data/umbrella_manifest.template.json"
     else:
-        source = ROOT / "data/dry_fruits.sample.json"
-        template = ROOT / "data/dry_fruits_manifest.template.json"
+        source = ROOT / "tests/fixtures/dry_fruits.sample.json"
+        template = ROOT / "tests/fixtures/dry_fruits_manifest.template.json"
     return json.loads(source.read_text(encoding="utf-8")), CatalogManifest.model_validate(
         json.loads(template.read_text(encoding="utf-8"))
     )
@@ -170,7 +170,7 @@ def test_umbrella_admin_keeps_existing_request_shape(tmp_path, monkeypatch):
 
 def test_llm_provider_is_onboarding_only_and_output_is_validated(tmp_path, monkeypatch):
     fruits, _ = fixture("dry_fruits")
-    template = json.loads((ROOT / "data/dry_fruits_manifest.template.json").read_text(encoding="utf-8"))
+    template = json.loads((ROOT / "tests/fixtures/dry_fruits_manifest.template.json").read_text(encoding="utf-8"))
     monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
     monkeypatch.setenv("CATALOG_LLM_MODEL", "test-model")
 

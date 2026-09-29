@@ -59,24 +59,21 @@ The app writes versioned JSON files on the server. On Render's free plan, filesy
 
 ## Use another product category
 
-The store serves one active catalog per deployment. The umbrella demo remains the default. A second deployment can set `ACTIVE_CATALOG=dry_fruits` and run the same server and frontend against the included dry fruit sample. The generalization affects catalog data, filters, details, comparison, tool definitions/results, and the voice greeting; the system prompt and AssemblyAI audio/WebSocket flow are shared.
+The store serves one active catalog per deployment, and the umbrella catalog is the default and the only one this repository deploys. The catalog code is category-general: catalog data, filters, details, comparison, tool definitions and results, and the voice greeting come from the active catalog's manifest, while the system prompt and the AssemblyAI audio/WebSocket flow are shared. A 3-product dry-fruit catalog in `tests/fixtures/` is test data that proves a non-umbrella catalog validates and runs through the eight tools, comparison and cart.
 
-To prepare a new category, supply a JSON array of product objects or an object with a `products` array. Every record needs an ID, name, description, positive price, and HTTP(S) image URL (or a local `/img/` path). Source field names may differ. The one-time onboarding step maps source paths into normalized products and a validated manifest. It rejects missing required data, invalid paths, unknown field types/operators, incompatible units, and duplicate IDs. It does not generate application code or invent values.
+To prepare a new category, supply a JSON array of product objects or an object with a `products` array. Every record needs an ID, name, description, positive price, and HTTP(S) image URL (or a local `/img/` path). Source field names may differ. Onboarding maps source paths into normalized products and a validated manifest. It rejects missing required data, invalid paths, unknown field types/operators, incompatible units, and duplicate IDs. It does not generate application code or invent values.
 
 ```bash
-# One-time hosted LLM preprocessing: set OPENAI_API_KEY and CATALOG_LLM_MODEL in .env
+# 1. Propose: the AssemblyAI LLM Gateway drafts a manifest (uses ASSEMBLYAI_API_KEY from .env)
 python -m backend.services.catalog_onboarding path/to/items.json --category my_category
+# 2. Review docs/onboarding/my_category-review.md, then 3. approve and publish
+python -m backend.services.catalog_onboarding --approve <proposal-id>
 
-# Reproduce the two checked-in categories without an LLM call
+# Fully manual option: publish a hand-written manifest without an LLM call
 python -m backend.services.catalog_onboarding data/products.json --category umbrella --manifest-template data/umbrella_manifest.template.json
-python -m backend.services.catalog_onboarding data/dry_fruits.sample.json --category dry_fruits --manifest-template data/dry_fruits_manifest.template.json
-
-# Start either deployment
-ACTIVE_CATALOG=dry_fruits uvicorn backend.main:app --port 8000
-# PowerShell: $env:ACTIVE_CATALOG='dry_fruits'; uvicorn backend.main:app --port 8000
 ```
 
-The command publishes `data/catalogs/<category>/<version>/manifest.json` and `products.json`, then moves that category's `active.json` pointer. Repeating unchanged input gives the same version; older versions stay readable for active browser sessions. Use `--no-activate` to validate and publish without switching the live catalog. `CATALOG_ROOT` can point to another bundle directory for an isolated deployment.
+Proposing writes `data/proposals/<proposal-id>/` and a review report, and never changes the live catalog. `--approve` refuses a proposal that failed validation or was edited after it was proposed. Publishing writes `data/catalogs/<category>/<version>/manifest.json` and `products.json`, then moves that category's `active.json` pointer. Repeating unchanged input gives the same version; older versions stay readable for active browser sessions. Use `--no-activate` to publish without switching the live catalog. `CATALOG_ROOT` can point to another bundle directory for an isolated deployment.
 
 The manifest declares field paths, typed attributes, units and conversion factors, search fields, filters, comparison order, display labels, variants, and example questions. Comparison directions are `higher`, `lower`, or `none`, with a rationale and confidence. Below `COMPARISON_CONFIDENCE_CUTOFF` (default `0.30`), the row remains visible but no winner is highlighted. This threshold is a policy setting, not a calibrated probability. The same backend comparison matrix is rendered on screen and returned to the voice tool.
 
@@ -99,7 +96,7 @@ Open http://localhost:8000. Localhost counts as a secure context, so the microph
 ## Tests
 
 ```bash
-node scripts/test_agent_tools.js   # all eight tools against umbrella and dry-fruit catalogs
+node scripts/test_agent_tools.js   # all eight tools against the umbrella catalog and the dry-fruit test fixture
 node scripts/test_mentions.js      # product mentions in the agent's speech that time the card highlights
 python -m pytest -q tests/test_catalog.py  # schema, onboarding, versioning, admin API, prompt invariance
 ruff check backend tests            # lint
