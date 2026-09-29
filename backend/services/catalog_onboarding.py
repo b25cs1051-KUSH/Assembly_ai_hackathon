@@ -204,7 +204,8 @@ def propose(
     report_dir.mkdir(parents=True, exist_ok=True)
     report = report_dir / f"{category}-review.md"
     report.write_text(review_report(meta, proposed, raw), encoding="utf-8")
-    return {**meta, "report": report.as_posix()}
+    shown = report.relative_to(ROOT) if report.is_relative_to(ROOT) else report
+    return {**meta, "report": shown.as_posix()}
 
 
 def approve(

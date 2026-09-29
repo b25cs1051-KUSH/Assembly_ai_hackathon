@@ -1,0 +1,13 @@
+{
+  "proposal_id": "5e5e2f093a2613eb",
+  "category_slug": "umbrella",
+  "source": "data/products.json",
+  "source_records": 15,
+  "product_count": 0,
+  "status": "rejected",
+  "errors": [
+    "schema_version: Input should be 1",
+    "search_aliases.0: Input should be a valid dictionary or instance of SearchAlias",
+    "search_aliases.1: Input should be a valid dictionary or instance of SearchAlias"
+  ]
+}

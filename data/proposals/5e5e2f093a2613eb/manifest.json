@@ -1,0 +1,173 @@
+{
+  "schema_version": "1",
+  "category_slug": "umbrella",
+  "display_name": "Umbrella",
+  "singular_name": "Umbrella",
+  "currency": "USD",
+  "field_map": {
+    "id": "id",
+    "name": "name",
+    "description": "description",
+    "price": "price",
+    "image_url": "image_url",
+    "brand": "brand",
+    "rating": "rating",
+    "review_count": "review_count",
+    "reviews": "reviews",
+    "reviews_summary": "reviews_summary",
+    "pros": "pros",
+    "cons": "cons",
+    "color": "color",
+    "color_family": "color_family",
+    "model": "model",
+    "specs": "specs",
+    "price_unit": "USD",
+    "weight_unit": "oz",
+    "size_unit": "in",
+    "rating_unit": "1-5",
+    "color_unit": "color",
+    "weight_oz": "specs.weight_oz",
+    "canopy_size_inches": "specs.canopy_size_inches",
+    "wind_rating_mph": "specs.wind_rating_mph"
+  },
+  "attributes": [
+    {
+      "key": "price",
+      "source": "price",
+      "label": "Price",
+      "kind": "number",
+      "unit": "USD",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "lower",
+      "confidence": 1,
+      "rationale": "Lower price is generally preferable for better value or to save money."
+    },
+    {
+      "key": "rating",
+      "source": "rating",
+      "label": "Rating",
+      "kind": "number",
+      "unit": "1-5",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 1,
+      "rationale": "Higher ratings indicate better customer satisfaction and product quality."
+    },
+    {
+      "key": "review_count",
+      "source": "review_count",
+      "label": "Review Count",
+      "kind": "number",
+      "unit": "count",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 1,
+      "rationale": "More reviews provide a larger sample size, increasing confidence in the rating."
+    },
+    {
+      "key": "weight",
+      "source": "specs.weight_oz",
+      "label": "Weight",
+      "kind": "number",
+      "unit": "oz",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "lower",
+      "confidence": 1,
+      "rationale": "Lighter weight is generally preferred for portability, especially for travel umbrellas."
+    },
+    {
+      "key": "size",
+      "source": "specs.canopy_size_inches",
+      "label": "Canopy Size",
+      "kind": "number",
+      "unit": "in",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 1,
+      "rationale": "Larger canopy sizes provide better coverage for rain protection."
+    },
+    {
+      "key": "wind_rating",
+      "source": "specs.wind_rating_mph",
+      "label": "Wind Rating",
+      "kind": "number",
+      "unit": "mph",
+      "input_units": {},
+      "filters": [],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 1,
+      "rationale": "Higher wind ratings indicate the umbrella can withstand stronger gusts without inverting."
+    },
+    {
+      "key": "color",
+      "source": "color",
+      "label": "Color",
+      "kind": "enum",
+      "unit": "color",
+      "input_units": {},
+      "filters": [],
+      "compare": false,
+      "direction": "none",
+      "confidence": 0,
+      "rationale": "Color preference is subjective and context-dependent."
+    },
+    {
+      "key": "frame_material",
+      "source": "specs.frame_material",
+      "label": "Frame Material",
+      "kind": "text",
+      "unit": "material",
+      "input_units": {},
+      "filters": [],
+      "compare": false,
+      "direction": "none",
+      "confidence": 0,
+      "rationale": "Material preference is subjective and depends on specific needs like weight vs durability."
+    }
+  ],
+  "comparison_fields": [
+    "price",
+    "rating",
+    "weight",
+    "size",
+    "wind_rating"
+  ],
+  "search_fields": [
+    "name",
+    "description",
+    "brand",
+    "color",
+    "specs.frame_material"
+  ],
+  "variant_group_source": "id",
+  "variant_value_source": "id",
+  "search_aliases": [
+    "rain",
+    "umbrella"
+  ],
+  "guide_questions": [
+    "What size canopy do you need?",
+    "Are you looking for a lightweight travel umbrella or a more durable building umbrella?",
+    "How much wind do you expect to encounter?"
+  ],
+  "presentation": "generic",
+  "source_sha256": "ec9ba6f5e5e0631ecb342f65ebb8ae25f3ecfc263466d75ae564a2a4f5ad9fed",
+  "preprocessing": {
+    "provider": "assemblyai",
+    "model": "qwen3.5-4b-32k-fast",
+    "prompt_version": "catalog-manifest-v1",
+    "validation": "failed",
+    "rejected_fields": "schema_version: Input should be 1; search_aliases.0: Input should be a valid dictionary or instance of SearchAlias; search_aliases.1: Input should be a valid dictionary or instance of SearchAlias"
+  }
+}
