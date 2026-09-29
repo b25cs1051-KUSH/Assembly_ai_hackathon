@@ -145,48 +145,76 @@ class CatalogManifest(BaseModel):
 
     @model_validator(mode="after")
     def valid_manifest(self) -> CatalogManifest:
-        if not SLUG_RE.fullmatch(self.category_slug):
-            raise ValueError("category_slug must be a lowercase slug")
-        if self.presentation == "umbrella_demo" and self.category_slug != "umbrella":
-            raise ValueError("umbrella_demo presentation is reserved for the original demo")
-        if not re.fullmatch(r"[A-Z]{3}", self.currency):
-            raise ValueError("currency must be a three-letter ISO code")
-        if not REQUIRED_FIELDS.issubset(self.field_map):
-            raise ValueError(f"field_map must include {sorted(REQUIRED_FIELDS)}")
-        if set(self.field_map) - REQUIRED_FIELDS - OPTIONAL_FIELDS:
-            raise ValueError("field_map contains an unsupported core field")
-        if any(not PATH_RE.fullmatch(path) for path in self.field_map.values()):
-            raise ValueError("field_map paths must be dotted object paths")
-        for path in (self.variant_group_source, self.variant_value_source):
-            if path is not None and not PATH_RE.fullmatch(path):
-                raise ValueError("variant paths must be dotted object paths")
-        keys = [attribute.key for attribute in self.attributes]
-        if len(keys) != len(set(keys)):
-            raise ValueError("attribute keys must be unique")
-        if set(keys) & (REQUIRED_FIELDS | OPTIONAL_FIELDS | {"attributes", "variant_group", "variant_value"}):
-            raise ValueError("attribute keys cannot shadow product fields")
-        parameters = [rule.parameter for attribute in self.attributes for rule in attribute.filters]
-        if len(parameters) != len(set(parameters)):
-            raise ValueError("filter parameters must be unique")
-        if set(parameters) & {"query", "max_price", "sort_by", "brand", "color", "min_rating"}:
-            raise ValueError("filter parameters cannot shadow built-in search fields")
-        if len(self.comparison_fields) != len(set(self.comparison_fields)):
-            raise ValueError("comparison_fields must be unique")
-        if len(self.search_fields) != len(set(self.search_fields)):
-            raise ValueError("search_fields must be unique")
-        allowed_compare = {"price", "rating", "brand", "color", "pros", "cons", *keys}
-        if not self.comparison_fields or set(self.comparison_fields) - allowed_compare:
-            raise ValueError("comparison_fields contains an unknown field")
-        noncomparable = {attribute.key for attribute in self.attributes if not attribute.compare}
-        if set(self.comparison_fields) & noncomparable:
-            raise ValueError("comparison_fields includes a noncomparable attribute")
-        allowed_search = {"name", "description", "brand", "color", *keys}
-        if not self.search_fields or set(self.search_fields) - allowed_search:
-            raise ValueError("search_fields contains an unknown field")
-        for alias in self.search_aliases:
-            if alias.parameter not in parameters:
-                raise ValueError(f"search alias targets unknown filter {alias.parameter}")
+        problems = manifest_problems(self.model_dump(mode="json"))
+        if problems:
+            raise ValueError("; ".join(problems))
         return self
+
+
+def manifest_problems(data: dict) -> list[str]:
+    """Every cross-field problem in a manifest. Tolerates malformed input, so a reviewer
+    sees these even when field-level validation also failed."""
+    problems: list[str] = []
+
+    def dicts(value: Any) -> list[dict]:
+        return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+    def strings(value: Any) -> list[str]:
+        return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+
+    slug = data.get("category_slug")
+    if not isinstance(slug, str) or not SLUG_RE.fullmatch(slug):
+        problems.append("category_slug must be a lowercase slug")
+    if data.get("presentation") == "umbrella_demo" and slug != "umbrella":
+        problems.append("umbrella_demo presentation is reserved for the original demo")
+    if not isinstance(data.get("currency"), str) or not re.fullmatch(r"[A-Z]{3}", data["currency"]):
+        problems.append("currency must be a three-letter ISO code")
+    field_map = data.get("field_map") if isinstance(data.get("field_map"), dict) else {}
+    if not REQUIRED_FIELDS.issubset(field_map):
+        problems.append(f"field_map must include {sorted(REQUIRED_FIELDS)}; missing {sorted(REQUIRED_FIELDS - set(field_map))}")
+    unsupported = sorted(set(field_map) - REQUIRED_FIELDS - OPTIONAL_FIELDS)
+    if unsupported:
+        problems.append(f"field_map contains an unsupported core field: {unsupported}")
+    bad_paths = sorted(str(path) for path in field_map.values() if not isinstance(path, str) or not PATH_RE.fullmatch(path))
+    if bad_paths:
+        problems.append(f"field_map paths must be dotted object paths: {bad_paths}")
+    for name in ("variant_group_source", "variant_value_source"):
+        path = data.get(name)
+        if path is not None and (not isinstance(path, str) or not PATH_RE.fullmatch(path)):
+            problems.append(f"variant paths must be dotted object paths: {name}")
+    attributes = dicts(data.get("attributes"))
+    keys = [attribute["key"] for attribute in attributes if isinstance(attribute.get("key"), str)]
+    if len(keys) != len(set(keys)):
+        problems.append("attribute keys must be unique")
+    shadowing = sorted(set(keys) & (REQUIRED_FIELDS | OPTIONAL_FIELDS | {"attributes", "variant_group", "variant_value"}))
+    if shadowing:
+        problems.append(f"attribute keys cannot shadow product fields: {shadowing}")
+    parameters = [rule["parameter"] for attribute in attributes for rule in dicts(attribute.get("filters"))
+                  if isinstance(rule.get("parameter"), str)]
+    if len(parameters) != len(set(parameters)):
+        problems.append("filter parameters must be unique")
+    builtin = sorted(set(parameters) & {"query", "max_price", "sort_by", "brand", "color", "min_rating"})
+    if builtin:
+        problems.append(f"filter parameters cannot shadow built-in search fields: {builtin}")
+    comparison_fields = strings(data.get("comparison_fields"))
+    search_fields = strings(data.get("search_fields"))
+    if len(comparison_fields) != len(set(comparison_fields)):
+        problems.append("comparison_fields must be unique")
+    if len(search_fields) != len(set(search_fields)):
+        problems.append("search_fields must be unique")
+    unknown = sorted(set(comparison_fields) - {"price", "rating", "brand", "color", "pros", "cons", *keys})
+    if not comparison_fields or unknown:
+        problems.append(f"comparison_fields contains an unknown field: {unknown}")
+    noncomparable = {attribute.get("key") for attribute in attributes if attribute.get("compare") is False}
+    if set(comparison_fields) & noncomparable:
+        problems.append(f"comparison_fields includes a noncomparable attribute: {sorted(set(comparison_fields) & noncomparable)}")
+    unknown = sorted(set(search_fields) - {"name", "description", "brand", "color", *keys})
+    if not search_fields or unknown:
+        problems.append(f"search_fields contains an unknown field: {unknown}")
+    for alias in dicts(data.get("search_aliases")):
+        if alias.get("parameter") not in parameters:
+            problems.append(f"search alias targets unknown filter {alias.get('parameter')}")
+    return problems
 
 
 class Product(BaseModel):

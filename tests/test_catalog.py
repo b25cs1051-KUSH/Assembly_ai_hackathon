@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from backend import config
 from backend.main import app
-from backend.services import product_service
+from backend.services import catalog_onboarding, product_service
 from backend.services.catalog import (
     CatalogManifest,
     load_catalog,
@@ -20,9 +20,11 @@ from backend.services.catalog import (
 )
 from backend.services.catalog_onboarding import (
     approve,
+    check_proposal,
     onboard,
     propose,
     propose_manifest,
+    review_hints,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -203,7 +205,7 @@ def test_llm_provider_is_onboarding_only_and_output_is_validated(tmp_path, monke
     folder = tmp_path / "proposals" / result["proposal_id"]
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["preprocessing"] == {
-        "provider": "assemblyai", "model": "test-model", "prompt_version": "catalog-manifest-v1",
+        "provider": "assemblyai", "model": "test-model", "prompt_version": "catalog-manifest-v2",
         "validation": "passed", "rejected_fields": "",
     }
     assert manifest["source_sha256"] == hashlib.sha256(FRUIT_SOURCE.read_bytes()).hexdigest()
@@ -326,3 +328,83 @@ def test_gateway_model_defaults_and_truncated_reply_is_rejected(monkeypatch):
     monkeypatch.setenv("ASSEMBLYAI_API_KEY", "")
     with pytest.raises(ValueError, match="ASSEMBLYAI_API_KEY"):
         propose_manifest(fruits, "dry_fruits")
+
+
+def scripted_gateway(replies, seen):
+    """Answer each gateway call with the next scripted reply and keep the request bodies."""
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop",
+            "message": {"content": replies[len(seen) - 1]}}]})
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_rejected_attempt_is_sent_back_and_corrected(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
+    good = json.loads(FRUIT_TEMPLATE.read_text(encoding="utf-8"))
+    bad = {**good, "schema_version": "1"}
+    seen = []
+    with scripted_gateway([json.dumps(bad), json.dumps(good)], seen) as client:
+        result = propose(FRUIT_SOURCE, "dry_fruits", client=client,
+                         proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
+    assert result["status"] == "pending_review"
+    assert [len(a["errors"]) for a in result["attempts"]] == [1, 0]
+    retry = seen[1]["messages"]
+    assert retry[2] == {"role": "assistant", "content": json.dumps(bad)}
+    assert "schema_version: Input should be 1" in retry[3]["content"]
+    report = (tmp_path / "docs" / "dry_fruits-review.md").read_text(encoding="utf-8")
+    assert "Attempt 1: 1 errors" in report and "Attempt 2: passed validation" in report
+
+
+def test_retries_stop_after_two_and_stay_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
+    seen = []
+    with scripted_gateway(["not json"] * 3, seen) as client:
+        result = propose(FRUIT_SOURCE, "dry_fruits", client=client,
+                         proposals_root=tmp_path / "proposals", report_dir=tmp_path / "docs")
+    assert len(seen) == 3
+    assert result["status"] == "rejected" and len(result["attempts"]) == 3
+
+
+def test_rate_limited_gateway_call_is_retried(monkeypatch):
+    fruits, _ = fixture("dry_fruits")
+    monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-only")
+    monkeypatch.setattr(catalog_onboarding, "RATE_LIMIT_WAITS", (0, 0))
+    calls = []
+
+    def handler(_request):
+        calls.append(1)
+        if len(calls) < 3:
+            return httpx.Response(429, json={"error": "rate limited"})
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop",
+            "message": {"content": FRUIT_TEMPLATE.read_text(encoding="utf-8")}}]})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        assert propose_manifest(fruits, "dry_fruits", client=client)["category_slug"] == "dry_fruits"
+    assert len(calls) == 3
+
+
+def test_every_failure_in_the_real_v1_proposal_is_reported_at_once():
+    proposed = json.loads((ROOT / "data/proposals/5e5e2f093a2613eb/manifest.json").read_text(encoding="utf-8"))
+    raw = json.loads((ROOT / "data/products.json").read_text(encoding="utf-8"))
+    products, errors = check_proposal(proposed, raw)
+    assert products == []
+    joined = "\n".join(errors)
+    for failure in ("schema_version", "search_aliases.0", "unsupported core field",
+                    "cannot shadow product fields", "search_fields contains an unknown field"):
+        assert failure in joined, failure
+
+
+def test_review_hints_flag_valid_but_doubtful_choices():
+    raw = json.loads((ROOT / "data/products.json").read_text(encoding="utf-8"))
+    reviewed = json.loads((ROOT / "data/umbrella_manifest.template.json").read_text(encoding="utf-8"))
+    doubtful = copy.deepcopy(reviewed)
+    doubtful["variant_group_source"] = "id"
+    doubtful["attributes"] = [a for a in doubtful["attributes"] if a["key"] != "automatic_open"]
+    doubtful["attributes"][1]["confidence"] = 1
+    hints = "\n".join(review_hints(doubtful, raw))
+    assert "variant_group_source is the product id path" in hints
+    assert "`specs.automatic_open` (15 of 15 records) is not mapped" in hints
+    assert "confidence 1" in hints
+    assert "product id path" not in "\n".join(review_hints(reviewed, raw))
+    assert "not mapped" not in "\n".join(review_hints(reviewed, raw))
