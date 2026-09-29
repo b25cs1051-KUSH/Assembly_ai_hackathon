@@ -56,7 +56,7 @@ Example record:
    ```bash
    python -m backend.services.catalog_onboarding --approve <proposal-id>
    ```
-   Approval is refused if the proposal failed validation or was edited after it was proposed. If the LLM got something wrong, write the manifest by hand and publish it with `--manifest-template path/to/manifest.json`.
+   If the model's reply fails validation, onboarding sends the errors back and asks again, up to two more times, and the report lists each attempt. A "Check these" section flags choices that are valid but often wrong, such as an unmapped source field or an alias that matches no product. Approval is refused if the proposal failed validation or was edited after it was proposed. If the LLM got something wrong, write the manifest by hand and publish it with `--manifest-template path/to/manifest.json`.
 4. **Publish.** Approval writes an immutable, checksummed bundle to `data/catalogs/<category>/<version>/` and points the category's `active.json` at it. The same storefront, the eight voice tools (`search_products`, `show_product`, `compare_products`, `update_compare`, `update_cart`, `show_cart`, `checkout`, `place_order`) and the AssemblyAI voice session then run on that catalog. Set `ACTIVE_CATALOG=<category>` for the deployment.
 
 ## 3. What validation guarantees, and what it can't
@@ -89,6 +89,6 @@ Validation can't fix wrong source data. If a price or a spec is wrong in your ex
 
 ## 5. Evidence
 
-- Real LLM Gateway run on the umbrella catalog: the proposal in [data/proposals/5e5e2f093a2613eb/](../data/proposals/5e5e2f093a2613eb/), its [review report](onboarding/umbrella-review.md), and the [field-by-field comparison](onboarding/umbrella-llm-vs-reviewed.md) with the reviewed manifest.
+- Real LLM Gateway runs on the umbrella catalog: a rejected v1 proposal ([data/proposals/5e5e2f093a2613eb/](../data/proposals/5e5e2f093a2613eb/), [report](onboarding/umbrella-review-v1.md)), a v2 proposal that passed validation ([data/proposals/82c254ff6d22940f/](../data/proposals/82c254ff6d22940f/), [report](onboarding/umbrella-review.md)), and the [field-by-field comparison](onboarding/umbrella-llm-vs-reviewed.md) with the reviewed manifest.
 - [tests/test_catalog.py](../tests/test_catalog.py): validation, versioning, the gateway call (mocked), the proposal and approval gate, and the category-neutral system prompt.
 - [scripts/test_agent_tools.js](../scripts/test_agent_tools.js): the eight tools, comparison, cart and checkout on the umbrella catalog and on a second-category test fixture (`tests/fixtures/catalogs/dry_fruits/`).

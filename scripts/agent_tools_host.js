@@ -1,14 +1,15 @@
 /* Runs the browser's eight tools in Node for scripts/voice_latency.py.
-   Set ACTIVE_CATALOG to choose the prepared category bundle. */
+   Set ACTIVE_CATALOG to choose the prepared category bundle and CATALOG_ROOT to read bundles elsewhere. */
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const readline = require('node:readline');
 
 const ROOT = path.join(__dirname, '..');
+const CATALOG_ROOT = path.resolve(ROOT, process.env.CATALOG_ROOT || 'data/catalogs');
 function load(category) {
-    const active = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/catalogs', category, 'active.json')));
-    const folder = path.join(ROOT, 'data/catalogs', category, active.version);
+    const active = JSON.parse(fs.readFileSync(path.join(CATALOG_ROOT, category, 'active.json')));
+    const folder = path.join(CATALOG_ROOT, category, active.version);
     const manifest = JSON.parse(fs.readFileSync(path.join(folder, 'manifest.json')));
     const products = JSON.parse(fs.readFileSync(path.join(folder, 'products.json')));
     let visible = products;

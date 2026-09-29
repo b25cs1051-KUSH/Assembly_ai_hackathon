@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "category_slug": "umbrella",
+  "display_name": "Umbrellas",
+  "singular_name": "umbrella",
+  "currency": "USD",
+  "field_map": {
+    "id": "id",
+    "name": "name",
+    "description": "description",
+    "price": "price",
+    "image_url": "image_url",
+    "brand": "brand",
+    "rating": "rating",
+    "review_count": "review_count",
+    "reviews_summary": "reviews_summary",
+    "pros": "pros",
+    "cons": "cons",
+    "reviews": "reviews",
+    "color": "color",
+    "color_family": "color_family",
+    "model": "model",
+    "specs": "specs"
+  },
+  "attributes": [
+    {
+      "key": "canopy_size",
+      "source": "specs.canopy_size_inches",
+      "label": "Canopy Size",
+      "kind": "number",
+      "unit": "inches",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "max_canopy_size",
+          "operator": "max",
+          "description": "Limit by maximum canopy width.",
+          "ui_label": "Max Canopy Size",
+          "ui_step": 1
+        }
+      ],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 0.95,
+      "rationale": "Shoppers prefer larger coverage for two people or as a tent back; reviews show preference for 'covers two' or 'deep canopy'."
+    },
+    {
+      "key": "wind_resistance",
+      "source": "specs.wind_rating_mph",
+      "label": "Wind Rating",
+      "kind": "number",
+      "unit": "mph",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "min_wind_rating",
+          "operator": "min",
+          "description": "Ensure the umbrella handles strong gusts.",
+          "ui_label": "Min Wind Resistance",
+          "ui_step": 10
+        }
+      ],
+      "compare": true,
+      "direction": "higher",
+      "confidence": 0.9,
+      "rationale": "Reviews explicitly praise 100 MPH ratings for surviving wind tunnels and gusts, while 30-50 MPH ratings are noted for struggling."
+    },
+    {
+      "key": "frame_material",
+      "source": "specs.frame_material",
+      "label": "Frame Material",
+      "kind": "enum",
+      "unit": "",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "frame_type",
+          "operator": "equals",
+          "description": "Select specific frame construction.",
+          "ui_label": "Frame Type",
+          "ui_step": 1
+        }
+      ],
+      "compare": false,
+      "direction": "none",
+      "confidence": 0.85,
+      "rationale": "Frame material dictates durability and weight but has no inherent superiority across all use cases (steel vs aluminum vs wood)."
+    },
+    {
+      "key": "automatic_open",
+      "source": "specs.automatic_open",
+      "label": "Automatic Open",
+      "kind": "boolean",
+      "unit": "",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "auto_open",
+          "operator": "equals",
+          "description": "Require one-button opening.",
+          "ui_label": "Auto Open",
+          "ui_step": 1
+        }
+      ],
+      "compare": false,
+      "direction": "none",
+      "confidence": 0.9,
+      "rationale": "Implicitly preferred for travel and hands-free use, as highlighted in pros text."
+    },
+    {
+      "key": "weight",
+      "source": "specs.weight_oz",
+      "label": "Weight",
+      "kind": "number",
+      "unit": "oz",
+      "input_units": {},
+      "filters": [
+        {
+          "parameter": "max_weight",
+          "operator": "max",
+          "description": "Limit by maximum weight for portability.",
+          "ui_label": "Max Weight",
+          "ui_step": 1
+        }
+      ],
+      "compare": true,
+      "direction": "lower",
+      "confidence": 0.8,
+      "rationale": "Reviews repeatedly cite weight as the primary cons ('heavier than compacts', 'heavy for a compact'), indicating lower is generally better for single-person travel."
+    }
+  ],
+  "comparison_fields": [
+    "price",
+    "rating",
+    "wind_resistance",
+    "weight",
+    "canopy_size"
+  ],
+  "search_fields": [
+    "name",
+    "description",
+    "color",
+    "canopy_size",
+    "frame_material"
+  ],
+  "variant_group_source": null,
+  "variant_value_source": null,
+  "search_aliases": [
+    {
+      "phrase": "dome",
+      "parameter": "frame_type",
+      "value": "Aluminum"
+    },
+    {
+      "phrase": "sturdy wind",
+      "parameter": "min_wind_rating",
+      "value": 100
+    },
+    {
+      "phrase": "compact",
+      "parameter": "max_weight",
+      "value": 15
+    }
+  ],
+  "guide_questions": [
+    "Which umbrella holds the most coverage for two people?",
+    "What wind rating is required for commute safety?",
+    "I need something lighter than 15 ounces for backpacking."
+  ],
+  "presentation": "generic",
+  "source_sha256": "ec9ba6f5e5e0631ecb342f65ebb8ae25f3ecfc263466d75ae564a2a4f5ad9fed",
+  "preprocessing": {
+    "provider": "assemblyai",
+    "model": "qwen3.5-4b-32k-fast",
+    "prompt_version": "catalog-manifest-v2",
+    "validation": "passed",
+    "rejected_fields": ""
+  }
+}

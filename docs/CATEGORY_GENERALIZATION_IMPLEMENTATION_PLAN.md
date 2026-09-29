@@ -1,6 +1,6 @@
 # Category-general VoiceCart: implementation plan
 
-Status on branch `feat/admin-catalog`: steps 1 to 6 and 8 are implemented. Step 7 is partly done: the automated two-category checks pass, but a full spoken journey on a second category has not been recorded. The umbrella catalog is the only presented store; the second category is the dry-fruit test fixture in `tests/fixtures/`. How a store uses the result: [INTEGRATION.md](INTEGRATION.md).
+Status on branch `feat/admin-catalog`: steps 1 to 6 and 8 are implemented. Step 7 is mostly done: the automated two-category checks pass and a scripted spoken journey on the second catalog is recorded, but no person has yet spoken to the second catalog in the browser. The umbrella catalog is the only presented store; the second category is the dry-fruit test fixture in `tests/fixtures/`. How a store uses the result: [INTEGRATION.md](INTEGRATION.md).
 
 ## Target behavior
 
@@ -47,7 +47,7 @@ For example, a dry-fruit catalog might expose pack weight and origin if those fi
 
 ### 2. Build the one-time LLM preprocessing command
 
-**Status: done, with a review step added.** The command is `python -m backend.services.catalog_onboarding`. The hosted provider is the AssemblyAI LLM Gateway (`qwen3.5-4b-32k-fast`, the gateway model our account can call), and `--provider command` runs a local model. The LLM output is saved as a proposal with a review report, and only `--approve <proposal-id>` publishes it. The manifest records provider, model, prompt version, source hash, validation result and rejected fields. A real run on the umbrella catalog was rejected by validation: [umbrella-llm-vs-reviewed.md](onboarding/umbrella-llm-vs-reviewed.md).
+**Status: done, with a review step added.** The command is `python -m backend.services.catalog_onboarding`. The hosted provider is the AssemblyAI LLM Gateway (`qwen3.5-4b-32k-fast`, the gateway model our account can call), and `--provider command` runs a local model. The LLM output is saved as a proposal with a review report, and only `--approve <proposal-id>` publishes it. The manifest records provider, model, prompt version, source hash, validation result and rejected fields. Rejected replies go back to the model with their validation errors, up to two more times. On the umbrella catalog, prompt v1 was rejected and prompt v2 passed validation: [umbrella-llm-vs-reviewed.md](onboarding/umbrella-llm-vs-reviewed.md).
 
 **Add:** an onboarding service and a command such as `scripts/onboard_catalog.py` that takes an input JSON path, desired category name, and output directory. It samples or chunks the catalog when necessary, sends the field inventory and representative records to a configurable LLM provider, and requests structured manifest output. Record the provider/model identifier, prompt version, catalog hash, generated manifest, validation result, and any rejected fields so the result is reproducible.
 
@@ -105,7 +105,7 @@ Ensure the catalog and manifest load **before** the voice session sends `session
 
 ### 7. Verify the claim with two categories
 
-**Status: partly done.** The automated checks listed here pass for both catalogs. The browser/voice journey has been run on the umbrella catalog only.
+**Status: mostly done.** The automated checks listed here pass for both catalogs. A live Voice Agent session ran the full eight-tool journey on the dry-fruit fixture with synthesized shopper speech: [dry-fruit-voice-journey.md](onboarding/dry-fruit-voice-journey.md). Not yet done: a person speaking to the second catalog in the browser.
 
 **Add focused tests** for schema validation, source mapping, unit conversion, comparison direction/confidence handling, absent fields, ID/position resolution, filter semantics, and a prompt-invariance assertion. Compare the agent tool result with the screen's comparison payload for the same IDs. Check that rejected LLM output cannot become a live manifest or executable code.
 

@@ -12,7 +12,7 @@ Demo store: product photos are from public listings; prices, ratings and reviews
 
 ## VoiceCart for any store: next step (branch feat/admin-catalog)
 
-This branch is our next step: onboarding any store's product data. We plan to continue it after the hackathon results. A store with good, structured product data can run the same storefront, eight voice tools and AssemblyAI voice session on its own catalog. The AssemblyAI LLM Gateway proposes the catalog configuration once, and a person reviews and approves it before anything goes live. The umbrella store is still the only presented store, and our first real gateway run on its data was rejected by validation, as [docs/onboarding/umbrella-llm-vs-reviewed.md](docs/onboarding/umbrella-llm-vs-reviewed.md) explains.
+This branch is our next step: onboarding any store's product data. We plan to continue it after the hackathon results. A store with good, structured product data can run the same storefront, eight voice tools and AssemblyAI voice session on its own catalog. The AssemblyAI LLM Gateway proposes the catalog configuration once, and a person reviews and approves it before anything goes live. The umbrella store is still the only presented store. On its data, our first real gateway run was rejected by validation, and the second prompt version passed after the model corrected its own validation errors, as [docs/onboarding/umbrella-llm-vs-reviewed.md](docs/onboarding/umbrella-llm-vs-reviewed.md) explains.
 
 1. **Prepare** the product JSON.
 2. **Run onboarding.** The LLM Gateway proposes field mappings, attribute types, units and comparison rules.

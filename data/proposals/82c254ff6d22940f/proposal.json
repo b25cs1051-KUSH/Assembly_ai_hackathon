@@ -1,0 +1,26 @@
+{
+  "proposal_id": "82c254ff6d22940f",
+  "category_slug": "umbrella",
+  "source": "data/products.json",
+  "source_records": 15,
+  "product_count": 15,
+  "status": "pending_review",
+  "errors": [],
+  "attempts": [
+    {
+      "attempt": 1,
+      "errors": [
+        "attributes.0.rationle: Extra inputs are not permitted",
+        "attributes.1.rationle: Extra inputs are not permitted",
+        "attributes.2.rationle: Extra inputs are not permitted",
+        "attributes.3.rationle: Extra inputs are not permitted",
+        "attributes.4.rationle: Extra inputs are not permitted",
+        "manifest: search alias targets unknown filter frame_material"
+      ]
+    },
+    {
+      "attempt": 2,
+      "errors": []
+    }
+  ]
+}
