@@ -87,8 +87,10 @@ Validation can't fix wrong source data. If a price or a spec is wrong in your ex
 | Hosted catalog storage (today: JSON files on the server) | Planned |
 | Import from common e-commerce export formats | Planned |
 
+What comes next, in order: [ROADMAP.md](ROADMAP.md).
+
 ## 5. Evidence
 
-- Real LLM Gateway runs on the umbrella catalog: a rejected v1 proposal ([data/proposals/5e5e2f093a2613eb/](../data/proposals/5e5e2f093a2613eb/), [report](onboarding/umbrella-review-v1.md)), a v2 proposal that passed validation ([data/proposals/82c254ff6d22940f/](../data/proposals/82c254ff6d22940f/), [report](onboarding/umbrella-review.md)), and the [field-by-field comparison](onboarding/umbrella-llm-vs-reviewed.md) with the reviewed manifest.
+- Real LLM Gateway onboarding of the umbrella catalog: the validated proposal ([data/proposals/82c254ff6d22940f/](../data/proposals/82c254ff6d22940f/), [report](onboarding/umbrella-review.md)) matched the reviewed manifest on all 16 core fields and all 5 comparison directions ([field-by-field comparison](onboarding/umbrella-llm-vs-reviewed.md)). An earlier prompt version's proposal shows the approval gate at work: validation stopped it before it could go live ([data/proposals/5e5e2f093a2613eb/](../data/proposals/5e5e2f093a2613eb/), [report](onboarding/umbrella-review-v1.md)).
 - [tests/test_catalog.py](../tests/test_catalog.py): validation, versioning, the gateway call (mocked), the proposal and approval gate, and the category-neutral system prompt.
 - [scripts/test_agent_tools.js](../scripts/test_agent_tools.js): the eight tools, comparison, cart and checkout on the umbrella catalog and on a second-category test fixture (`tests/fixtures/catalogs/dry_fruits/`).

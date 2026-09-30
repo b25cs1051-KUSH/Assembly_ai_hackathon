@@ -10,16 +10,16 @@
 
 Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
 
-## VoiceCart for any store: next step (branch feat/admin-catalog)
+## VoiceCart for any store (branch `feat/admin-catalog`)
 
-This branch is our next step: onboarding any store's product data. We plan to continue it after the hackathon results. A store with good, structured product data can run the same storefront, eight voice tools and AssemblyAI voice session on its own catalog. The AssemblyAI LLM Gateway proposes the catalog configuration once, and a person reviews and approves it before anything goes live. The umbrella store is still the only presented store. On its data, our first real gateway run was rejected by validation, and the second prompt version passed after the model corrected its own validation errors, as [docs/onboarding/umbrella-llm-vs-reviewed.md](docs/onboarding/umbrella-llm-vs-reviewed.md) explains.
+We built VoiceCart for every online store, not only for umbrellas. The `feat/admin-catalog` branch turns a store's own product data into a VoiceCart store in four steps. The storefront, the eight voice tools and the AssemblyAI voice session stay the same for every store. We believe every shop should be able to talk with its shoppers, and we will keep building this after the hackathon.
 
 1. **Prepare** the product JSON.
-2. **Run onboarding.** The LLM Gateway proposes field mappings, attribute types, units and comparison rules.
-3. **Review** the generated report and approve the proposal.
-4. **Publish.** The storefront and voice tools run on the approved catalog.
+2. **Propose.** Once per catalog, before any shopper speaks, the AssemblyAI LLM Gateway maps the store's fields, attribute types and units, filters, and which values win a comparison. Validation checks every reply, and the model corrects anything it flags.
+3. **Review and approve.** Each proposal comes with a review report. Nothing goes live until a person approves it.
+4. **Publish.** The storefront and the eight voice tools run on the new catalog.
 
-How to do it, and what is built and what is planned: [docs/INTEGRATION.md](docs/INTEGRATION.md).
+**Tested on real data.** From our raw umbrella catalog, the validated proposal matched our hand-built configuration on all 16 core fields and all 5 comparison directions ([onboarding report](docs/onboarding/umbrella-llm-vs-reviewed.md)). The same eight tools also ran a full spoken journey, from search to a placed order, on a second product category ([transcript](docs/onboarding/dry-fruit-voice-journey.md)). How a store onboards, and what is built and planned: [INTEGRATION.md](docs/INTEGRATION.md).
 
 ## Why it matters
 
