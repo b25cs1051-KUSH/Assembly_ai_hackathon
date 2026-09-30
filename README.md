@@ -14,7 +14,7 @@ Demo store: product photos are from public listings; prices, ratings and reviews
 
 ## Results at a glance
 
-- **1.9 s** from the end of a spoken request to the agent answering, in its own voice. Measured over 6 runs.
+- **1.9 s** until the shopper hears the agent respond, in its own voice. A full search answer follows at 4.8 s. Measured over 6 runs.
 - **Turn-detection tuning cut the conversational reply wait from 5.7 s to 3.3 s,** measured with our own Voice Agent API benchmark.
 - **Interrupt it any time.** Talk over the agent and it stops mid-sentence.
 - **It never guesses.** Every price, spec and review it speaks comes from a tool result against the store's catalog.
@@ -30,7 +30,7 @@ VoiceCart is built for every online store, not just one. The [`any-store-onboard
 3. **Review and approve.** Every proposal comes with a readable report, and nothing goes live until a person approves it.
 4. **Publish.** Shoppers can search, compare, fill a cart and check out by voice on the new catalog right away.
 
-**Proven on real data.** The LLM Gateway onboarded our raw umbrella catalog in about 13 seconds. It found all 5 product attributes and matched our hand-built configuration on all 16 core fields and every comparison direction ([onboarding report](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/umbrella-llm-vs-reviewed.md)). A second product category then completed a spoken order, from search to placed order, through the same eight tools ([transcript](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/dry-fruit-voice-journey.md)). How a store onboards: [INTEGRATION.md](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/INTEGRATION.md). What comes next: [ROADMAP.md](docs/ROADMAP.md).
+**Proven on real data.** The LLM Gateway onboarded our raw umbrella catalog. It found all 5 product attributes and matched our hand-built configuration on all 16 core fields and every comparison direction ([onboarding report](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/umbrella-llm-vs-reviewed.md)). A second product category then completed a spoken order, from search to placed order, through the same eight tools ([transcript](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/dry-fruit-voice-journey.md)). How a store onboards: [INTEGRATION.md](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/INTEGRATION.md). What comes next: [ROADMAP.md](docs/ROADMAP.md).
 
 ## Why it matters
 
