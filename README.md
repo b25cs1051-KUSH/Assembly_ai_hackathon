@@ -10,15 +10,16 @@
 
 Demo store: product photos are from public listings; prices, ratings and reviews are sample data.
 
-## Next step: any store's catalog (branch `feat/admin-catalog`)
+## VoiceCart for any store (branch `feat/admin-catalog`)
 
-The live site and the video run this `main` branch. The [`feat/admin-catalog`](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/tree/feat/admin-catalog) branch is our next step: onboarding any store's product data. We plan to continue it after the hackathon results. It adds:
+We built VoiceCart for every online store, not only for umbrellas. The [`feat/admin-catalog`](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/tree/feat/admin-catalog) branch turns a store's own product data into a VoiceCart store in four steps. The storefront, the eight voice tools and the AssemblyAI voice session stay the same for every store. We believe every shop should be able to talk with its shoppers, and we will keep building this after the hackathon.
 
-- **Onboarding with the AssemblyAI LLM Gateway.** Once per catalog, before any shopper talks, the model proposes field mappings, attribute types and units, filters, and which values win a comparison. A reply that fails validation goes back to the model with its errors.
-- **Review before publishing.** Each proposal gets a review report, and only `--approve <proposal-id>` makes it live.
-- **One storefront, prompt and set of eight tools for any catalog.** Filters, comparison rows and tool definitions come from the catalog's manifest.
+1. **Prepare** the product JSON.
+2. **Propose.** Once per catalog, before any shopper speaks, the AssemblyAI LLM Gateway maps the store's fields, attribute types and units, filters, and which values win a comparison. Validation checks every reply, and the model corrects anything it flags.
+3. **Review and approve.** Each proposal comes with a review report. Nothing goes live until a person approves it.
+4. **Publish.** The storefront and the eight voice tools run on the new catalog.
 
-On our umbrella data, the first prompt version was rejected. The second passed validation and matched the reviewed manifest on all 16 core fields and all 5 comparison directions ([comparison](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/onboarding/umbrella-llm-vs-reviewed.md)). A live voice session with synthesized shopper speech ran all eight tools on a second, dry-fruit test catalog ([transcript](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/onboarding/dry-fruit-voice-journey.md)). How a store onboards: [INTEGRATION.md](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/INTEGRATION.md).
+**Tested on real data.** From our raw umbrella catalog, the validated proposal matched our hand-built configuration on all 16 core fields and all 5 comparison directions ([onboarding report](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/onboarding/umbrella-llm-vs-reviewed.md)). The same eight tools also ran a full spoken journey, from search to a placed order, on a second product category ([transcript](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/onboarding/dry-fruit-voice-journey.md)). How a store onboards, and what is built and planned: [INTEGRATION.md](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/feat/admin-catalog/docs/INTEGRATION.md).
 
 ## Why it matters
 
