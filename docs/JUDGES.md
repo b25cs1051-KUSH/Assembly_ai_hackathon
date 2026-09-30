@@ -33,7 +33,7 @@ The [`any-store-onboarding`](https://github.com/b25cs1051-KUSH/Assembly_ai_hacka
 
 | Open | What it shows |
 |---|---|
-| [Onboarding report](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/umbrella-llm-vs-reviewed.md) | The LLM Gateway onboarded our raw catalog in about 13 seconds and matched our hand-built configuration on all 16 core fields and every comparison direction. |
+| [Onboarding report](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/umbrella-llm-vs-reviewed.md) | The LLM Gateway onboarded our raw catalog and matched our hand-built configuration on all 16 core fields and every comparison direction. |
 | [Review report](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/umbrella-review.md) | What a merchant reads before approving: every mapping, unit and comparison rule, with flags for anything to double-check. |
 | [Second-category transcript](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/onboarding/dry-fruit-voice-journey.md) | A different product category completing a spoken order, from search to placed order, through the same eight tools. |
 | [INTEGRATION.md](https://github.com/b25cs1051-KUSH/Assembly_ai_hackathon/blob/any-store-onboarding/docs/INTEGRATION.md) | The data contract and the four steps a store follows. |
